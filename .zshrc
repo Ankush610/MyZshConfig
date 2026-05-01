@@ -19,6 +19,7 @@ setopt HIST_IGNORE_SPACE
 setopt SHARE_HISTORY
 setopt AUTO_PUSHD
 setopt PUSHD_IGNORE_DUPS
+setopt PROMPT_SUBST
 
 # ── History ──────────────────────────────────────────────────────
 HISTFILE=~/.zsh_history
@@ -102,9 +103,12 @@ bindkey '^H'      backward-kill-word
 bindkey '^ '   autosuggest-accept
 bindkey '^[f'  forward-word
 
-# ── Prompt ───────────────────────────────────────────────────────
+# ── Prompt (ANSI slots → dankshell palette, updates with wallpaper)
 autoload -Uz colors && colors
-PROMPT='%F{2}[%n@%m]%f%F{4}%~%f%# '
+autoload -Uz vcs_info
+precmd() { vcs_info }
+zstyle ':vcs_info:git:*' formats ' %F{3}(%b)%f'
+PROMPT="%F{2}[%n@%m]%f%F{4}%~%f\${vcs_info_msg_0_}%F{4}%#%f "
 
 # ── Editors ──────────────────────────────────────────────────────
 export EDITOR='nvim'
