@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # ════════════════════════════════════════════════════════════════
 #  install-zsh-setup.sh — Fedora 44 Zsh Environment Setup
-#  Installs: zsh, fzf, lsd, bat, neovim, git,
-#            zsh-syntax-highlighting, zsh-autosuggestions, fzf-tab
+#  Installs: zsh, fzf, eza, neovim, git,
+#            zsh-syntax-highlighting, zsh-autosuggestions, fzf-tab,
+#            Ghostty cursor shader (elastic animation)
+#
+#  Run once manually: bash install-zsh-setup.sh
+#  This script is NOT sourced by .zshrc — it is a one-time installer.
 # ════════════════════════════════════════════════════════════════
 
 set -e
@@ -44,8 +48,14 @@ SUDO_KEEPALIVE_PID=$!
 trap "kill $SUDO_KEEPALIVE_PID 2>/dev/null" EXIT
 
 # ── 1. DNF packages ──────────────────────────────────────────────
+# zsh      — the shell itself
+# fzf      — fuzzy finder (Ctrl+F, Ctrl+R, fzf-tab previews)
+# eza      — modern ls replacement (ls/ll/lt/la aliases in .zshrc)
+# neovim   — editor (vi/vim aliases, $EDITOR/$VISUAL in .zshrc)
+# git      — version control (git aliases + used to clone plugins below)
+# curl     — used by this script for internet check
 log "Installing DNF packages..."
-sudo dnf install -y zsh fzf lsd bat neovim git curl
+sudo dnf install -y zsh fzf eza neovim git curl
 ok "DNF packages installed."
 
 # ── 2. zsh-syntax-highlighting ───────────────────────────────────
@@ -80,7 +90,38 @@ else
 fi
 ok "fzf-tab ready."
 
-# ── 5. Deploy .zshrc ─────────────────────────────────────────────
+# ── 5. Ghostty cursor shader (elastic animation) ─────────────────
+log "Installing Ghostty cursor shader..."
+GHOSTTY_SHADER_DIR=~/.config/ghostty/shaders
+GHOSTTY_CONFIG=~/.config/ghostty/config
+
+mkdir -p "$GHOSTTY_SHADER_DIR"
+
+if [[ -d "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders" ]]; then
+  warn "Cursor shader already exists — pulling latest..."
+  git -C "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders" pull --quiet
+else
+  git clone https://github.com/sahaj-b/ghostty-cursor-shaders \
+    "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders"
+fi
+ok "Ghostty cursor shader cloned."
+
+# Write Ghostty config entries if not already present
+mkdir -p ~/.config/ghostty
+if [[ ! -f "$GHOSTTY_CONFIG" ]]; then
+  touch "$GHOSTTY_CONFIG"
+fi
+if ! grep -q "ghostty-cursor-shaders/cursor_tail.glsl" "$GHOSTTY_CONFIG"; then
+  echo "" >> "$GHOSTTY_CONFIG"
+  echo "# Cursor elastic animation shader" >> "$GHOSTTY_CONFIG"
+  echo "custom-shader = shaders/ghostty-cursor-shaders/cursor_tail.glsl" >> "$GHOSTTY_CONFIG"
+  echo "custom-shader-animation = always" >> "$GHOSTTY_CONFIG"
+  ok "Ghostty config updated with cursor shader."
+else
+  ok "Ghostty config already has cursor shader entry."
+fi
+
+# ── 6. Deploy .zshrc ─────────────────────────────────────────────
 ZSHRC_SOURCE="$(dirname "$0")/.zshrc"
 if [[ -f "$ZSHRC_SOURCE" ]]; then
   log "Deploying .zshrc..."
@@ -95,7 +136,7 @@ else
   warn ".zshrc not found next to this script — skipping. Place .zshrc in the same folder."
 fi
 
-# ── 6. Change default shell ──────────────────────────────────────
+# ── 7. Change default shell ──────────────────────────────────────
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
 ZSH_PATH=$(which zsh)
 if [[ "$CURRENT_SHELL" == "$ZSH_PATH" ]]; then
@@ -106,7 +147,7 @@ else
   ok "Default shell changed to zsh."
 fi
 
-# ── 7. Verify installs ───────────────────────────────────────────
+# ── 8. Verify installs ───────────────────────────────────────────
 echo -e "\n${BOLD}── Verification ─────────────────────────────────${RESET}"
 check() {
   if command -v "$1" &>/dev/null; then
@@ -117,14 +158,19 @@ check() {
 }
 check zsh
 check fzf
-check lsd
-check bat
+check eza
 check nvim
 check git
-[[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] && ok "zsh-syntax-highlighting plugin" || warn "zsh-syntax-highlighting plugin missing"
-[[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ]]         && ok "zsh-autosuggestions plugin"    || warn "zsh-autosuggestions plugin missing"
-[[ -f ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh ]]    && ok "fzf-tab plugin"                || warn "fzf-tab plugin missing"
-[[ -f ~/.zshrc ]]                                                    && ok ".zshrc deployed"               || warn ".zshrc missing"
+[[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] \
+  && ok "zsh-syntax-highlighting plugin"  || warn "zsh-syntax-highlighting plugin missing"
+[[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ]] \
+  && ok "zsh-autosuggestions plugin"      || warn "zsh-autosuggestions plugin missing"
+[[ -f ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh ]] \
+  && ok "fzf-tab plugin"                  || warn "fzf-tab plugin missing"
+[[ -f ~/.config/ghostty/shaders/ghostty-cursor-shaders/cursor_tail.glsl ]] \
+  && ok "Ghostty cursor shader"           || warn "Ghostty cursor shader missing"
+[[ -f ~/.zshrc ]] \
+  && ok ".zshrc deployed"                 || warn ".zshrc missing"
 
 # ── Done ─────────────────────────────────────────────────────────
 echo -e "\n${GREEN}${BOLD}════════════════════════════════════════════════${RESET}"
@@ -133,8 +179,10 @@ echo -e "${GREEN}${BOLD}══════════════════�
 echo -e "\n  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Run ${CYAN}exec zsh${RESET} to start zsh now"
 echo -e "     OR log out and back in for permanent effect"
-echo -e "  2. ${CYAN}Ctrl+R${RESET}        — fuzzy history search"
-echo -e "  3. ${CYAN}Ctrl+F${RESET}        — fuzzy file finder"
-echo -e "  4. ${CYAN}Tab${RESET}           — fuzzy tab completion"
-echo -e "  5. ${CYAN}↑ / ↓${RESET}         — history prefix search"
-echo -e "  6. ${CYAN}→ / Ctrl+Space${RESET} — accept autosuggestion\n"
+echo -e "  2. Reload Ghostty config to activate cursor shader:"
+echo -e "     ${CYAN}systemctl reload --user app-com.mitchellh.ghostty.service${RESET}"
+echo -e "  3. ${CYAN}Ctrl+R${RESET}        — fuzzy history search"
+echo -e "  4. ${CYAN}Ctrl+F${RESET}        — fuzzy file finder"
+echo -e "  5. ${CYAN}Tab${RESET}           — fuzzy tab completion"
+echo -e "  6. ${CYAN}↑ / ↓${RESET}         — history prefix search"
+echo -e "  7. ${CYAN}→ / Ctrl+Space${RESET} — accept autosuggestion\n"
