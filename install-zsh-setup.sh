@@ -123,15 +123,40 @@ fi
 
 # ── 6. Deploy .zshrc ─────────────────────────────────────────────
 ZSHRC_SOURCE="$(dirname "$0")/.zshrc"
+DANKSHELL_FILE=~/.zsh/dankshell.zsh
+SOURCE_LINE="source ~/.zsh/dankshell.zsh"
+
 if [[ -f "$ZSHRC_SOURCE" ]]; then
-  log "Deploying .zshrc..."
-  if [[ -f ~/.zshrc ]]; then
-    BACKUP=~/.zshrc.backup.$(date +%Y%m%d_%H%M%S)
-    cp ~/.zshrc "$BACKUP"
-    warn "Existing .zshrc backed up to $BACKUP"
+  log "Deploying dankshell config..."
+
+  # Install config as a separate sourceable file
+  mkdir -p ~/.zsh
+  cp "$ZSHRC_SOURCE" "$DANKSHELL_FILE"
+  ok "Dankshell config installed to $DANKSHELL_FILE"
+
+  if [[ ! -f ~/.zshrc ]]; then
+    # No existing .zshrc — create a minimal one
+    echo "$SOURCE_LINE" > ~/.zshrc
+    ok ".zshrc created."
+  elif grep -q "$SOURCE_LINE" ~/.zshrc; then
+    # Already hooked in — just update the sourced file (already done above)
+    ok ".zshrc already sources dankshell — config updated in place."
+  else
+    # Existing .zshrc found — append the source line
+    echo "" >> ~/.zshrc
+    echo "# ── Dankshell config (added by install-zsh-setup.sh) ────────────" >> ~/.zshrc
+    echo "$SOURCE_LINE" >> ~/.zshrc
+    ok "Dankshell config appended to your existing .zshrc."
+
+    echo ""
+    warn "Your existing .zshrc was NOT replaced — your config is intact."
+    warn "The dankshell config was appended at the bottom, so it takes"
+    warn "precedence over any conflicting aliases or settings above it."
+    warn "If you want to override anything (aliases, keybindings, etc.),"
+    warn "add your overrides AFTER the source line in ~/.zshrc, or edit"
+    warn "~/.zsh/dankshell.zsh directly."
+    echo ""
   fi
-  cp "$ZSHRC_SOURCE" ~/.zshrc
-  ok ".zshrc deployed."
 else
   warn ".zshrc not found next to this script — skipping. Place .zshrc in the same folder."
 fi
