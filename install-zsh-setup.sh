@@ -19,10 +19,53 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-log()  { echo -e "${CYAN}${BOLD}[INFO]${RESET}  $1"; }
-ok()   { echo -e "${GREEN}${BOLD}[ OK ]${RESET}  $1"; }
-warn() { echo -e "${YELLOW}${BOLD}[WARN]${RESET}  $1"; }
-err()  { echo -e "${RED}${BOLD}[ERR ]${RESET}  $1"; exit 1; }
+LOG=/tmp/zsh-setup-install.log
+: > "$LOG"
+
+TOTAL=8
+STEP=0
+
+step() { STEP=$((STEP + 1)); echo -e "\n${CYAN}${BOLD}[$STEP/$TOTAL]${RESET} ${BOLD}$1${RESET}"; }
+ok()   { echo -e "  ${GREEN}✔${RESET}  $1"; }
+warn() { echo -e "  ${YELLOW}!${RESET}  $1"; }
+err()  { echo -e "  ${RED}✘${RESET}  $1"; exit 1; }
+
+# run <description> <command...>
+# Runs the command quietly (output → $LOG) with a spinner; on failure
+# prints the tail of the log and exits.
+run() {
+  local msg=$1 rc=0
+  shift
+  if [[ -t 1 ]]; then
+    "$@" >>"$LOG" 2>&1 &
+    local pid=$! frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+    while kill -0 "$pid" 2>/dev/null; do
+      printf '\r  %s  %s' "${frames:$((i % 10)):1}" "$msg"
+      i=$((i + 1))
+      sleep 0.1
+    done
+    wait "$pid" || rc=$?
+    printf '\r\033[K'
+  else
+    "$@" >>"$LOG" 2>&1 || rc=$?
+  fi
+  if (( rc != 0 )); then
+    echo -e "  ${RED}✘${RESET}  $msg failed (exit $rc) — last lines of log:"
+    tail -n 20 "$LOG" | sed 's/^/     /'
+    err "Full log: $LOG"
+  fi
+}
+
+# clone_or_update <repo-url> <target-dir>
+clone_or_update() {
+  local name
+  name=$(basename "$2")
+  if [[ -d "$2" ]]; then
+    run "Updating $name" git -C "$2" pull --quiet
+  else
+    run "Cloning $name" git clone --depth 1 "$1" "$2"
+  fi
+}
 
 # ── Root check ───────────────────────────────────────────────────
 if [[ $EUID -eq 0 ]]; then
@@ -34,14 +77,13 @@ echo -e "${BOLD}   Zsh Environment Setup — Fedora 44${RESET}"
 echo -e "${BOLD}════════════════════════════════════════════════${RESET}\n"
 
 # ── Internet check ───────────────────────────────────────────────
-log "Checking internet connectivity..."
 if ! curl -s --max-time 5 https://github.com > /dev/null; then
   err "No internet connection. Please connect and try again."
 fi
 ok "Internet connection OK."
 
 # ── Sudo upfront ─────────────────────────────────────────────────
-log "Requesting sudo access upfront..."
+ok "Requesting sudo access upfront..."
 sudo -v
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 SUDO_KEEPALIVE_PID=$!
@@ -54,64 +96,43 @@ trap "kill $SUDO_KEEPALIVE_PID 2>/dev/null" EXIT
 # neovim   — editor (vi/vim aliases, $EDITOR/$VISUAL in .zshrc)
 # git      — version control (git aliases + used to clone plugins below)
 # curl     — used by this script for internet check
-log "Installing DNF packages..."
-sudo dnf install -y zsh fzf eza neovim git curl
+step "DNF packages"
+run "Installing zsh fzf eza neovim git curl" \
+  sudo dnf install -y zsh fzf eza neovim git curl
 ok "DNF packages installed."
 
 # ── 2. zsh-syntax-highlighting ───────────────────────────────────
-log "Installing zsh-syntax-highlighting..."
+step "zsh-syntax-highlighting"
 mkdir -p ~/.zsh
-if [[ -d ~/.zsh/zsh-syntax-highlighting ]]; then
-  warn "Already exists — pulling latest..."
-  git -C ~/.zsh/zsh-syntax-highlighting pull --quiet
-else
-  git clone https://github.com/zsh-users/zsh-syntax-highlighting ~/.zsh/zsh-syntax-highlighting
-fi
+clone_or_update https://github.com/zsh-users/zsh-syntax-highlighting ~/.zsh/zsh-syntax-highlighting
 ok "zsh-syntax-highlighting ready."
 
 # ── 3. zsh-autosuggestions ───────────────────────────────────────
-log "Installing zsh-autosuggestions..."
-if [[ -d ~/.zsh/zsh-autosuggestions ]]; then
-  warn "Already exists — pulling latest..."
-  git -C ~/.zsh/zsh-autosuggestions pull --quiet
-else
-  git clone https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/zsh-autosuggestions
-fi
+step "zsh-autosuggestions"
+clone_or_update https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/zsh-autosuggestions
 ok "zsh-autosuggestions ready."
 
 # ── 4. fzf-tab ───────────────────────────────────────────────────
-log "Installing fzf-tab..."
+step "fzf-tab"
 mkdir -p ~/.oh-my-zsh/custom/plugins
-if [[ -d ~/.oh-my-zsh/custom/plugins/fzf-tab ]]; then
-  warn "Already exists — pulling latest..."
-  git -C ~/.oh-my-zsh/custom/plugins/fzf-tab pull --quiet
-else
-  git clone https://github.com/Aloxaf/fzf-tab ~/.oh-my-zsh/custom/plugins/fzf-tab
-fi
+clone_or_update https://github.com/Aloxaf/fzf-tab ~/.oh-my-zsh/custom/plugins/fzf-tab
 ok "fzf-tab ready."
 
 # ── 5. Ghostty cursor shader (elastic animation) ─────────────────
-log "Installing Ghostty cursor shader..."
+step "Ghostty cursor shader"
 GHOSTTY_SHADER_DIR=~/.config/ghostty/shaders
 GHOSTTY_CONFIG=~/.config/ghostty/config
 
 mkdir -p "$GHOSTTY_SHADER_DIR"
-
-if [[ -d "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders" ]]; then
-  warn "Cursor shader already exists — pulling latest..."
-  git -C "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders" pull --quiet
-else
-  git clone https://github.com/sahaj-b/ghostty-cursor-shaders \
-    "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders"
-fi
+clone_or_update https://github.com/sahaj-b/ghostty-cursor-shaders \
+  "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders"
 ok "Ghostty cursor shader cloned."
 
-# Write Ghostty config entries if not already present
+# ── 6. Ghostty config ────────────────────────────────────────────
+step "Ghostty config"
 mkdir -p ~/.config/ghostty
-if [[ ! -f "$GHOSTTY_CONFIG" ]]; then
-  touch "$GHOSTTY_CONFIG"
-fi
-if ! grep -q "ghostty-cursor-shaders/cursor_tail.glsl" "$GHOSTTY_CONFIG"; then
+touch "$GHOSTTY_CONFIG"
+if ! grep -qF "ghostty-cursor-shaders/cursor_tail.glsl" "$GHOSTTY_CONFIG"; then
   echo "" >> "$GHOSTTY_CONFIG"
   echo "# Cursor elastic animation shader" >> "$GHOSTTY_CONFIG"
   echo "custom-shader = shaders/ghostty-cursor-shaders/cursor_tail.glsl" >> "$GHOSTTY_CONFIG"
@@ -121,14 +142,13 @@ else
   ok "Ghostty config already has cursor shader entry."
 fi
 
-# ── 6. Deploy .zshrc ─────────────────────────────────────────────
+# ── 7. Deploy .zshrc ─────────────────────────────────────────────
+step "Deploy dankshell config"
 ZSHRC_SOURCE="$(dirname "$0")/.zshrc"
 DANKSHELL_FILE=~/.zsh/dankshell.zsh
 SOURCE_LINE="source ~/.zsh/dankshell.zsh"
 
 if [[ -f "$ZSHRC_SOURCE" ]]; then
-  log "Deploying dankshell config..."
-
   # Install config as a separate sourceable file
   mkdir -p ~/.zsh
   cp "$ZSHRC_SOURCE" "$DANKSHELL_FILE"
@@ -138,7 +158,7 @@ if [[ -f "$ZSHRC_SOURCE" ]]; then
     # No existing .zshrc — create a minimal one
     echo "$SOURCE_LINE" > ~/.zshrc
     ok ".zshrc created."
-  elif grep -q "$SOURCE_LINE" ~/.zshrc; then
+  elif grep -qF "$SOURCE_LINE" ~/.zshrc; then
     # Already hooked in — just update the sourced file (already done above)
     ok ".zshrc already sources dankshell — config updated in place."
   else
@@ -161,22 +181,22 @@ else
   warn ".zshrc not found next to this script — skipping. Place .zshrc in the same folder."
 fi
 
-# ── 7. Change default shell ──────────────────────────────────────
+# ── 8. Change default shell ──────────────────────────────────────
+step "Default shell"
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
-ZSH_PATH=$(which zsh)
+ZSH_PATH=$(command -v zsh)
 if [[ "$CURRENT_SHELL" == "$ZSH_PATH" ]]; then
   ok "Default shell is already zsh."
 else
-  log "Changing default shell to zsh..."
   sudo chsh -s "$ZSH_PATH" "$USER"
   ok "Default shell changed to zsh."
 fi
 
-# ── 8. Verify installs ───────────────────────────────────────────
+# ── Verify installs ──────────────────────────────────────────────
 echo -e "\n${BOLD}── Verification ─────────────────────────────────${RESET}"
 check() {
   if command -v "$1" &>/dev/null; then
-    ok "$1 $(command -v $1)"
+    ok "$1 $(command -v "$1")"
   else
     warn "$1 not found — something may have gone wrong"
   fi
@@ -210,4 +230,5 @@ echo -e "  3. ${CYAN}Ctrl+R${RESET}        — fuzzy history search"
 echo -e "  4. ${CYAN}Ctrl+F${RESET}        — fuzzy file finder"
 echo -e "  5. ${CYAN}Tab${RESET}           — fuzzy tab completion"
 echo -e "  6. ${CYAN}↑ / ↓${RESET}         — history prefix search"
-echo -e "  7. ${CYAN}→ / Ctrl+Space${RESET} — accept autosuggestion\n"
+echo -e "  7. ${CYAN}→ / Ctrl+Space${RESET} — accept autosuggestion"
+echo -e "\n  Install log: ${CYAN}$LOG${RESET}\n"
