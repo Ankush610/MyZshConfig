@@ -20,15 +20,21 @@ BOLD='\033[1m'
 RESET='\033[0m'
 
 LOG=/tmp/zsh-setup-install.log
-: > "$LOG"
+: >"$LOG"
 
 TOTAL=8
 STEP=0
 
-step() { STEP=$((STEP + 1)); echo -e "\n${CYAN}${BOLD}[$STEP/$TOTAL]${RESET} ${BOLD}$1${RESET}"; }
-ok()   { echo -e "  ${GREEN}✔${RESET}  $1"; }
+step() {
+  STEP=$((STEP + 1))
+  echo -e "\n${CYAN}${BOLD}[$STEP/$TOTAL]${RESET} ${BOLD}$1${RESET}"
+}
+ok() { echo -e "  ${GREEN}✔${RESET}  $1"; }
 warn() { echo -e "  ${YELLOW}!${RESET}  $1"; }
-err()  { echo -e "  ${RED}✘${RESET}  $1"; exit 1; }
+err() {
+  echo -e "  ${RED}✘${RESET}  $1"
+  exit 1
+}
 
 # run <description> <command...>
 # Runs the command quietly (output → $LOG) with a spinner; on failure
@@ -49,7 +55,7 @@ run() {
   else
     "$@" >>"$LOG" 2>&1 || rc=$?
   fi
-  if (( rc != 0 )); then
+  if ((rc != 0)); then
     echo -e "  ${RED}✘${RESET}  $msg failed (exit $rc) — last lines of log:"
     tail -n 20 "$LOG" | sed 's/^/     /'
     err "Full log: $LOG"
@@ -77,7 +83,7 @@ echo -e "${BOLD}   Zsh Environment Setup — Fedora 44${RESET}"
 echo -e "${BOLD}════════════════════════════════════════════════${RESET}\n"
 
 # ── Internet check ───────────────────────────────────────────────
-if ! curl -s --max-time 5 https://github.com > /dev/null; then
+if ! curl -s --max-time 5 https://github.com >/dev/null; then
   err "No internet connection. Please connect and try again."
 fi
 ok "Internet connection OK."
@@ -85,7 +91,11 @@ ok "Internet connection OK."
 # ── Sudo upfront ─────────────────────────────────────────────────
 ok "Requesting sudo access upfront..."
 sudo -v
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+while true; do
+  sudo -n true
+  sleep 60
+  kill -0 "$$" || exit
+done 2>/dev/null &
 SUDO_KEEPALIVE_PID=$!
 trap "kill $SUDO_KEEPALIVE_PID 2>/dev/null" EXIT
 
@@ -133,10 +143,10 @@ step "Ghostty config"
 mkdir -p ~/.config/ghostty
 touch "$GHOSTTY_CONFIG"
 if ! grep -qF "ghostty-cursor-shaders/cursor_tail.glsl" "$GHOSTTY_CONFIG"; then
-  echo "" >> "$GHOSTTY_CONFIG"
-  echo "# Cursor elastic animation shader" >> "$GHOSTTY_CONFIG"
-  echo "custom-shader = shaders/ghostty-cursor-shaders/cursor_tail.glsl" >> "$GHOSTTY_CONFIG"
-  echo "custom-shader-animation = always" >> "$GHOSTTY_CONFIG"
+  echo "" >>"$GHOSTTY_CONFIG"
+  echo "# Cursor elastic animation shader" >>"$GHOSTTY_CONFIG"
+  echo "custom-shader = shaders/ghostty-cursor-shaders/cursor_tail.glsl" >>"$GHOSTTY_CONFIG"
+  echo "custom-shader-animation = always" >>"$GHOSTTY_CONFIG"
   ok "Ghostty config updated with cursor shader."
 else
   ok "Ghostty config already has cursor shader entry."
@@ -156,16 +166,16 @@ if [[ -f "$ZSHRC_SOURCE" ]]; then
 
   if [[ ! -f ~/.zshrc ]]; then
     # No existing .zshrc — create a minimal one
-    echo "$SOURCE_LINE" > ~/.zshrc
+    echo "$SOURCE_LINE" >~/.zshrc
     ok ".zshrc created."
   elif grep -qF "$SOURCE_LINE" ~/.zshrc; then
     # Already hooked in — just update the sourced file (already done above)
     ok ".zshrc already sources dankshell — config updated in place."
   else
     # Existing .zshrc found — append the source line
-    echo "" >> ~/.zshrc
-    echo "# ── Dankshell config (added by install-zsh-setup.sh) ────────────" >> ~/.zshrc
-    echo "$SOURCE_LINE" >> ~/.zshrc
+    echo "" >>~/.zshrc
+    echo "# ── Dankshell config (added by install-zsh-setup.sh) ────────────" >>~/.zshrc
+    echo "$SOURCE_LINE" >>~/.zshrc
     ok "Dankshell config appended to your existing .zshrc."
 
     echo ""
@@ -206,20 +216,21 @@ check fzf
 check eza
 check nvim
 check git
-[[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] \
-  && ok "zsh-syntax-highlighting plugin"  || warn "zsh-syntax-highlighting plugin missing"
-[[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ]] \
-  && ok "zsh-autosuggestions plugin"      || warn "zsh-autosuggestions plugin missing"
-[[ -f ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh ]] \
-  && ok "fzf-tab plugin"                  || warn "fzf-tab plugin missing"
-[[ -f ~/.config/ghostty/shaders/ghostty-cursor-shaders/cursor_tail.glsl ]] \
-  && ok "Ghostty cursor shader"           || warn "Ghostty cursor shader missing"
-[[ -f ~/.zshrc ]] \
-  && ok ".zshrc deployed"                 || warn ".zshrc missing"
+[[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] &&
+  ok "zsh-syntax-highlighting plugin" || warn "zsh-syntax-highlighting plugin missing"
+[[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ]] &&
+  ok "zsh-autosuggestions plugin" || warn "zsh-autosuggestions plugin missing"
+[[ -f ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh ]] &&
+  ok "fzf-tab plugin" || warn "fzf-tab plugin missing"
+[[ -f ~/.config/ghostty/shaders/ghostty-cursor-shaders/cursor_tail.glsl ]] &&
+  ok "Ghostty cursor shader" || warn "Ghostty cursor shader missing"
+[[ -f ~/.zshrc ]] &&
+  ok ".zshrc deployed" || warn ".zshrc missing"
 
 # ── Cheatsheet ───────────────────────────────────────────────────
 # Written to ~/.zsh/cheatsheet.txt so the `zshhelp` alias can reprint it.
-CHEATSHEET=$(cat <<EOF
+CHEATSHEET=$(
+  cat <<EOF
 
 ${BOLD}──────────────────────────────────────────────────────────────${RESET}
  ${BOLD}INSTALLED COMPONENTS${RESET}
@@ -267,10 +278,11 @@ ${BOLD}────────────────────────�
   • History is shared live across all open terminals (duplicates skipped)
   • Start a command with a space to keep it out of history
   • Every cd is pushed to the dir stack: ${CYAN}dirs -v${RESET} to list, ${CYAN}cd -2${RESET} to jump back
+
 EOF
 )
 mkdir -p ~/.zsh
-echo -e "$CHEATSHEET" > ~/.zsh/cheatsheet.txt
+echo -e "$CHEATSHEET" >~/.zsh/cheatsheet.txt
 
 # ── Done ─────────────────────────────────────────────────────────
 echo -e "\n${GREEN}${BOLD}════════════════════════════════════════════════${RESET}"
