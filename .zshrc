@@ -78,6 +78,7 @@ alias rm='rm -iv'
 alias grep='grep --color=auto'
 alias df='df -h'
 alias du='du -sh'
+alias zshhelp='cat ~/.zsh/cheatsheet.txt 2>/dev/null || echo "cheatsheet not found — re-run install-zsh-setup.sh"'
 
 # ── Git Aliases ──────────────────────────────────────────────────
 alias gs='git status'

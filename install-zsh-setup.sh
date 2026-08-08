@@ -217,6 +217,61 @@ check git
 [[ -f ~/.zshrc ]] \
   && ok ".zshrc deployed"                 || warn ".zshrc missing"
 
+# ── Cheatsheet ───────────────────────────────────────────────────
+# Written to ~/.zsh/cheatsheet.txt so the `zshhelp` alias can reprint it.
+CHEATSHEET=$(cat <<EOF
+
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+ ${BOLD}INSTALLED COMPONENTS${RESET}
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+  ${CYAN}zsh${RESET}                      default shell, git-aware prompt: [user@host]~/path (branch)
+  ${CYAN}zsh-syntax-highlighting${RESET}  commands turn green (valid) / red (invalid) as you type
+  ${CYAN}zsh-autosuggestions${RESET}      grey ghost-text suggestions from your history
+  ${CYAN}fzf + fzf-tab${RESET}            fuzzy history/file search, fuzzy Tab completion with previews
+  ${CYAN}eza${RESET}                      modern ls with icons (ls/ll/la/lt aliases)
+  ${CYAN}neovim${RESET}                   default editor (\$EDITOR/\$VISUAL, vi/vim aliases)
+  ${CYAN}Ghostty cursor shader${RESET}    elastic cursor animation
+
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+ ${BOLD}KEYBINDINGS${RESET}
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+  ${CYAN}Ctrl+R${RESET}           fuzzy search command history
+  ${CYAN}Ctrl+F${RESET}           fuzzy find files (inserts path at cursor)
+  ${CYAN}Tab${RESET}              fuzzy completion menu with directory preview
+  ${CYAN}↑ / ↓${RESET}            search history filtered by what you've typed
+  ${CYAN}→ / Ctrl+Space${RESET}   accept the grey autosuggestion
+  ${CYAN}Alt+F${RESET}            accept autosuggestion one word at a time
+  ${CYAN}Ctrl+← / Ctrl+→${RESET}  jump backward / forward one word
+  ${CYAN}Ctrl+Backspace${RESET}   delete the previous word
+
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+ ${BOLD}ALIASES${RESET}
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+  ${CYAN}ls / la${RESET}          list files / incl. hidden (icons)
+  ${CYAN}ll${RESET}               long listing incl. hidden
+  ${CYAN}lt${RESET}               tree view, 2 levels deep
+  ${CYAN}vi / vim${RESET}         open neovim
+  ${CYAN}.. / ...${RESET}         up one / two directories
+  ${CYAN}cp / mv / rm${RESET}     interactive + verbose (asks before overwrite/delete)
+  ${CYAN}mkdir${RESET}            creates parent dirs automatically (-pv)
+  ${CYAN}grep / df / du${RESET}   colored / human-readable sizes
+  ${CYAN}zshhelp${RESET}          show this cheatsheet again
+
+  ${BOLD}Git:${RESET}  ${CYAN}gs${RESET} status   ${CYAN}ga${RESET} add   ${CYAN}gc${RESET} commit   ${CYAN}gp${RESET} push   ${CYAN}gd${RESET} diff   ${CYAN}gl${RESET} pretty log
+
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+ ${BOLD}SHELL BEHAVIOR${RESET}
+${BOLD}──────────────────────────────────────────────────────────────${RESET}
+  • Type a directory name alone to cd into it (auto-cd)
+  • Mistyped a command? zsh offers a spelling correction
+  • History is shared live across all open terminals (duplicates skipped)
+  • Start a command with a space to keep it out of history
+  • Every cd is pushed to the dir stack: ${CYAN}dirs -v${RESET} to list, ${CYAN}cd -2${RESET} to jump back
+EOF
+)
+mkdir -p ~/.zsh
+echo -e "$CHEATSHEET" > ~/.zsh/cheatsheet.txt
+
 # ── Done ─────────────────────────────────────────────────────────
 echo -e "\n${GREEN}${BOLD}════════════════════════════════════════════════${RESET}"
 echo -e "${GREEN}${BOLD}   Installation complete!${RESET}"
@@ -226,9 +281,7 @@ echo -e "  1. Run ${CYAN}exec zsh${RESET} to start zsh now"
 echo -e "     OR log out and back in for permanent effect"
 echo -e "  2. Reload Ghostty config to activate cursor shader:"
 echo -e "     ${CYAN}systemctl reload --user app-com.mitchellh.ghostty.service${RESET}"
-echo -e "  3. ${CYAN}Ctrl+R${RESET}        — fuzzy history search"
-echo -e "  4. ${CYAN}Ctrl+F${RESET}        — fuzzy file finder"
-echo -e "  5. ${CYAN}Tab${RESET}           — fuzzy tab completion"
-echo -e "  6. ${CYAN}↑ / ↓${RESET}         — history prefix search"
-echo -e "  7. ${CYAN}→ / Ctrl+Space${RESET} — accept autosuggestion"
-echo -e "\n  Install log: ${CYAN}$LOG${RESET}\n"
+
+cat ~/.zsh/cheatsheet.txt
+echo -e "\n  View this cheatsheet anytime with: ${CYAN}zshhelp${RESET}"
+echo -e "  Install log: ${CYAN}$LOG${RESET}\n"

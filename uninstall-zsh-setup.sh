@@ -179,8 +179,8 @@ else
   warn "No .zshrc found."
 fi
 
-rm -f ~/.zsh/dankshell.zsh
-ok "~/.zsh/dankshell.zsh removed."
+rm -f ~/.zsh/dankshell.zsh ~/.zsh/cheatsheet.txt
+ok "~/.zsh/dankshell.zsh and cheatsheet removed."
 
 # cleanup empty dirs
 rmdir ~/.zsh 2>/dev/null                        && ok "~/.zsh dir removed."  || true
