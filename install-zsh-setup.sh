@@ -282,7 +282,7 @@ ${BOLD}────────────────────────�
 EOF
 )
 mkdir -p ~/.zsh
-echo -e "$CHEATSHEET" >~/.zsh/cheatsheet.txt
+echo -e "$CHEATSHEET\n" >~/.zsh/cheatsheet.txt
 
 # ── Done ─────────────────────────────────────────────────────────
 echo -e "\n${GREEN}${BOLD}════════════════════════════════════════════════${RESET}"
