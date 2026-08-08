@@ -39,7 +39,9 @@ source ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh 2>/dev/null || tru
 if command -v eza &>/dev/null; then
   zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null'
   zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null'
-  zstyle ':fzf-tab:complete:*'    fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || echo $realpath'
+  # Directories preview with eza, files with bat
+  zstyle ':fzf-tab:complete:*'    fzf-preview \
+    'if [[ -d $realpath ]]; then eza --color=always --icons $realpath 2>/dev/null; else bat --color=always --style=numbers $realpath 2>/dev/null || echo $realpath; fi'
 fi
 
 # ── Zsh Syntax Highlighting ──────────────────────────────────────
@@ -61,6 +63,9 @@ source /usr/share/fzf/shell/completion.zsh   2>/dev/null || true
 bindkey '^T' undefined-key
 bindkey '^F' fzf-file-widget
 
+# ── zoxide (smarter cd: z <partial-path>) ────────────────────────
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
+
 # ── Aliases ──────────────────────────────────────────────────────
 alias ls='eza --icons'
 alias ll='eza -la --icons'
@@ -68,6 +73,8 @@ alias lt='eza --tree --level=2 --icons'
 alias la='eza -a --icons'
 alias vi='nvim'
 alias vim='nvim'
+command -v bat  &>/dev/null && alias cat='bat --paging=never'
+command -v glow &>/dev/null && alias md='glow -p'
 
 alias ..='cd ..'
 alias ...='cd ../..'

@@ -82,7 +82,7 @@ if [[ -z "$MODE" ]]; then
   echo -e "     Reverts shell to bash. Keeps all DNF packages installed.\n"
   echo -e "  ${CYAN}2)${RESET} ${BOLD}Full clean${RESET}"
   echo -e "     Everything in option 1, plus removes DNF packages"
-  echo -e "     (zsh, fzf, eza, neovim) and wipes history/backups.\n"
+  echo -e "     (zsh, fzf, eza, neovim, zoxide, bat, glow) and wipes history/backups.\n"
   echo -e "  ${CYAN}3)${RESET} ${BOLD}Abort${RESET}\n"
 
   echo -ne "  ${BOLD}Enter choice [1/2/3]:${RESET} "
@@ -196,7 +196,7 @@ if [[ "$MODE" == "2" ]]; then
 
   # ── 5. Remove DNF packages ─────────────────────────────────────
   step "DNF packages"
-  PKGS=(zsh fzf eza neovim)
+  PKGS=(zsh fzf eza neovim zoxide bat glow)
   warn "curl will NOT be removed as it is commonly used by other tools."
   if [[ -z "$YES" ]]; then
     echo -ne "  ${BOLD}Also remove git? Other projects on this machine may need it. [y/N]:${RESET} "
@@ -211,6 +211,8 @@ if [[ "$MODE" == "2" ]]; then
   step "History and backups"
   rm -f ~/.zsh_history
   ok "~/.zsh_history removed."
+  rm -rf ~/.local/share/zoxide
+  ok "zoxide database removed."
   rm -f ~/.zshrc.uninstall.*
   ok "All .zshrc backups removed."
 

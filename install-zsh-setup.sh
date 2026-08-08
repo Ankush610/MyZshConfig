@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ════════════════════════════════════════════════════════════════
 #  install-zsh-setup.sh — Fedora 44 Zsh Environment Setup
-#  Installs: zsh, fzf, eza, neovim, git,
+#  Installs: zsh, fzf, eza, neovim, git, zoxide, bat, glow,
 #            zsh-syntax-highlighting, zsh-autosuggestions, fzf-tab,
 #            Ghostty cursor shader (elastic animation)
 #
@@ -105,10 +105,13 @@ trap "kill $SUDO_KEEPALIVE_PID 2>/dev/null" EXIT
 # eza      — modern ls replacement (ls/ll/lt/la aliases in .zshrc)
 # neovim   — editor (vi/vim aliases, $EDITOR/$VISUAL in .zshrc)
 # git      — version control (git aliases + used to clone plugins below)
+# zoxide   — smarter cd (z <partial-path> jumps to frecent dirs)
+# bat      — cat with syntax highlighting (cat alias, fzf-tab file previews)
+# glow     — markdown reader in the terminal (md alias)
 # curl     — used by this script for internet check
 step "DNF packages"
-run "Installing zsh fzf eza neovim git curl" \
-  sudo dnf install -y zsh fzf eza neovim git curl
+run "Installing zsh fzf eza neovim git zoxide bat glow curl" \
+  sudo dnf install -y zsh fzf eza neovim git zoxide bat glow curl
 ok "DNF packages installed."
 
 # ── 2. zsh-syntax-highlighting ───────────────────────────────────
@@ -216,6 +219,9 @@ check fzf
 check eza
 check nvim
 check git
+check zoxide
+check bat
+check glow
 [[ -f ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] &&
   ok "zsh-syntax-highlighting plugin" || warn "zsh-syntax-highlighting plugin missing"
 [[ -f ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh ]] &&
@@ -240,6 +246,9 @@ ${BOLD}────────────────────────�
   ${CYAN}zsh-autosuggestions${RESET}      grey ghost-text suggestions from your history
   ${CYAN}fzf + fzf-tab${RESET}            fuzzy history/file search, fuzzy Tab completion with previews
   ${CYAN}eza${RESET}                      modern ls with icons (ls/ll/la/lt aliases)
+  ${CYAN}zoxide${RESET}                   smarter cd — ${CYAN}z <partial-path>${RESET} jumps to dirs you visit often
+  ${CYAN}bat${RESET}                      cat with syntax highlighting (cat alias, file previews in Tab menu)
+  ${CYAN}glow${RESET}                     markdown reader in the terminal (${CYAN}md file.md${RESET})
   ${CYAN}neovim${RESET}                   default editor (\$EDITOR/\$VISUAL, vi/vim aliases)
   ${CYAN}Ghostty cursor shader${RESET}    elastic cursor animation
 
@@ -262,6 +271,9 @@ ${BOLD}────────────────────────�
   ${CYAN}ll${RESET}               long listing incl. hidden
   ${CYAN}lt${RESET}               tree view, 2 levels deep
   ${CYAN}vi / vim${RESET}         open neovim
+  ${CYAN}cat${RESET}              bat — syntax-highlighted file viewing
+  ${CYAN}md${RESET}               glow — render a markdown file, paged
+  ${CYAN}z / zi${RESET}           jump to a frecent dir / pick one interactively (zoxide)
   ${CYAN}.. / ...${RESET}         up one / two directories
   ${CYAN}cp / mv / rm${RESET}     interactive + verbose (asks before overwrite/delete)
   ${CYAN}mkdir${RESET}            creates parent dirs automatically (-pv)
