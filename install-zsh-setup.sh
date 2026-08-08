@@ -271,7 +271,8 @@ ${BOLD}────────────────────────�
   ${CYAN}ll${RESET}               long listing incl. hidden
   ${CYAN}lt${RESET}               tree view, 2 levels deep
   ${CYAN}vi / vim${RESET}         open neovim
-  ${CYAN}cat${RESET}              bat — syntax-highlighted file viewing
+  ${CYAN}cat${RESET}              bat (plain) — colored text, no line numbers, copies clean
+  ${CYAN}bat${RESET}              full bat view — line numbers, grid, headers
   ${CYAN}md${RESET}               glow — render a markdown file, paged
   ${CYAN}z / zi${RESET}           jump to a frecent dir / pick one interactively (zoxide)
   ${CYAN}.. / ...${RESET}         up one / two directories

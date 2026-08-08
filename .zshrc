@@ -73,7 +73,7 @@ alias lt='eza --tree --level=2 --icons'
 alias la='eza -a --icons'
 alias vi='nvim'
 alias vim='nvim'
-command -v bat  &>/dev/null && alias cat='bat --paging=never'
+command -v bat  &>/dev/null && alias cat='bat --plain --paging=never'
 command -v glow &>/dev/null && alias md='glow -p'
 
 alias ..='cd ..'
@@ -85,7 +85,7 @@ alias rm='rm -iv'
 alias grep='grep --color=auto'
 alias df='df -h'
 alias du='du -sh'
-alias zshhelp='cat ~/.zsh/cheatsheet.txt 2>/dev/null || echo "cheatsheet not found — re-run install-zsh-setup.sh"'
+alias zshhelp='command cat ~/.zsh/cheatsheet.txt 2>/dev/null || echo "cheatsheet not found — re-run install-zsh-setup.sh"'
 
 # ── Git Aliases ──────────────────────────────────────────────────
 alias gs='git status'
