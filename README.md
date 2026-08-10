@@ -7,14 +7,13 @@ My personal Zsh setup for Fedora, built for a **Niri + Dank Material Shell + Gho
 | File | Purpose |
 |------|---------|
 | `.zshrc` | The actual shell config (installed as `~/.zsh/dankshell.zsh`) |
-| `install-zsh-setup.sh` | One-time installer — packages, plugins, config, shader |
+| `install-zsh-setup.sh` | One-time installer — packages, plugins, config |
 | `uninstall-zsh-setup.sh` | Reverts everything back to bash |
 
 ## What it sets up
 
 - **Packages** (dnf): zsh, fzf, eza, neovim, git, zoxide (smarter `cd` — `z <partial-path>`), bat (syntax-highlighted `cat`), glow (markdown reader — `md file.md`)
 - **Plugins**: zsh-syntax-highlighting, zsh-autosuggestions, fzf-tab (eza previews for dirs, bat previews for files)
-- **Ghostty**: elastic cursor-tail shader, wired into `~/.config/ghostty/config`
 - **Shell config**: sensible options, shared history, git-aware prompt using ANSI palette slots (so it recolors with the wallpaper), eza/nvim/git aliases, fzf keybindings (`Ctrl+F` file finder, since Ghostty grabs `Ctrl+T`)
 - **Cheatsheet**: `zshhelp` prints a quick reference anytime
 

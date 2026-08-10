@@ -123,7 +123,3 @@ export EDITOR='nvim'
 export VISUAL='nvim'
 export PAGER='less'
 export LESS='-R'
-
-# ── Ghostty cursor shader ────────────────────────────────────────
-# Elastic animation is configured in ~/.config/ghostty/config.
-# Managed by install-zsh-setup.sh — no sourcing needed here.

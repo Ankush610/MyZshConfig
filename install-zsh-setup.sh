@@ -2,8 +2,7 @@
 # ════════════════════════════════════════════════════════════════
 #  install-zsh-setup.sh — Fedora 44 Zsh Environment Setup
 #  Installs: zsh, fzf, eza, neovim, git, zoxide, bat, glow,
-#            zsh-syntax-highlighting, zsh-autosuggestions, fzf-tab,
-#            Ghostty cursor shader (elastic animation)
+#            zsh-syntax-highlighting, zsh-autosuggestions, fzf-tab
 #
 #  Run once manually: bash install-zsh-setup.sh
 #  This script is NOT sourced by .zshrc — it is a one-time installer.
@@ -131,31 +130,7 @@ mkdir -p ~/.oh-my-zsh/custom/plugins
 clone_or_update https://github.com/Aloxaf/fzf-tab ~/.oh-my-zsh/custom/plugins/fzf-tab
 ok "fzf-tab ready."
 
-# ── 5. Ghostty cursor shader (elastic animation) ─────────────────
-step "Ghostty cursor shader"
-GHOSTTY_SHADER_DIR=~/.config/ghostty/shaders
-GHOSTTY_CONFIG=~/.config/ghostty/config
-
-mkdir -p "$GHOSTTY_SHADER_DIR"
-clone_or_update https://github.com/sahaj-b/ghostty-cursor-shaders \
-  "$GHOSTTY_SHADER_DIR/ghostty-cursor-shaders"
-ok "Ghostty cursor shader cloned."
-
-# ── 6. Ghostty config ────────────────────────────────────────────
-step "Ghostty config"
-mkdir -p ~/.config/ghostty
-touch "$GHOSTTY_CONFIG"
-if ! grep -qF "ghostty-cursor-shaders/cursor_tail.glsl" "$GHOSTTY_CONFIG"; then
-  echo "" >>"$GHOSTTY_CONFIG"
-  echo "# Cursor elastic animation shader" >>"$GHOSTTY_CONFIG"
-  echo "custom-shader = shaders/ghostty-cursor-shaders/cursor_tail.glsl" >>"$GHOSTTY_CONFIG"
-  echo "custom-shader-animation = always" >>"$GHOSTTY_CONFIG"
-  ok "Ghostty config updated with cursor shader."
-else
-  ok "Ghostty config already has cursor shader entry."
-fi
-
-# ── 7. Deploy .zshrc ─────────────────────────────────────────────
+# ── 5. Deploy .zshrc ─────────────────────────────────────────────
 step "Deploy dankshell config"
 ZSHRC_SOURCE="$(dirname "$0")/.zshrc"
 DANKSHELL_FILE=~/.zsh/dankshell.zsh
@@ -194,7 +169,7 @@ else
   warn ".zshrc not found next to this script — skipping. Place .zshrc in the same folder."
 fi
 
-# ── 8. Change default shell ──────────────────────────────────────
+# ── 6. Change default shell ──────────────────────────────────────
 step "Default shell"
 CURRENT_SHELL=$(getent passwd "$USER" | cut -d: -f7)
 ZSH_PATH=$(command -v zsh)
@@ -228,8 +203,6 @@ check glow
   ok "zsh-autosuggestions plugin" || warn "zsh-autosuggestions plugin missing"
 [[ -f ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh ]] &&
   ok "fzf-tab plugin" || warn "fzf-tab plugin missing"
-[[ -f ~/.config/ghostty/shaders/ghostty-cursor-shaders/cursor_tail.glsl ]] &&
-  ok "Ghostty cursor shader" || warn "Ghostty cursor shader missing"
 [[ -f ~/.zshrc ]] &&
   ok ".zshrc deployed" || warn ".zshrc missing"
 
@@ -250,7 +223,6 @@ ${BOLD}────────────────────────�
   ${CYAN}bat${RESET}                      cat with syntax highlighting (cat alias, file previews in Tab menu)
   ${CYAN}glow${RESET}                     markdown reader in the terminal (${CYAN}md file.md${RESET})
   ${CYAN}neovim${RESET}                   default editor (\$EDITOR/\$VISUAL, vi/vim aliases)
-  ${CYAN}Ghostty cursor shader${RESET}    elastic cursor animation
 
 ${BOLD}──────────────────────────────────────────────────────────────${RESET}
  ${BOLD}KEYBINDINGS${RESET}
@@ -304,8 +276,6 @@ echo -e "${GREEN}${BOLD}══════════════════�
 echo -e "\n  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Run ${CYAN}exec zsh${RESET} to start zsh now"
 echo -e "     OR log out and back in for permanent effect"
-echo -e "  2. Reload Ghostty config to activate cursor shader:"
-echo -e "     ${CYAN}systemctl reload --user app-com.mitchellh.ghostty.service${RESET}"
 
 cat ~/.zsh/cheatsheet.txt
 echo -e "\n  View this cheatsheet anytime with: ${CYAN}zshhelp${RESET}"

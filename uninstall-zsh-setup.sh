@@ -78,7 +78,7 @@ echo -e "${BOLD}═════════════════════�
 if [[ -z "$MODE" ]]; then
   echo -e "  ${BOLD}Choose uninstall mode:${RESET}\n"
   echo -e "  ${CYAN}1)${RESET} ${BOLD}Config only${RESET}"
-  echo -e "     Remove dankshell config, Ghostty cursor shader, and zsh plugins."
+  echo -e "     Remove dankshell config and zsh plugins."
   echo -e "     Reverts shell to bash. Keeps all DNF packages installed.\n"
   echo -e "  ${CYAN}2)${RESET} ${BOLD}Full clean${RESET}"
   echo -e "     Everything in option 1, plus removes DNF packages"
@@ -135,32 +135,7 @@ ok "zsh-autosuggestions removed."
 rm -rf ~/.oh-my-zsh/custom/plugins/fzf-tab
 ok "fzf-tab removed."
 
-# ── 3. Remove Ghostty cursor shader ──────────────────────────────
-step "Ghostty cursor shader"
-GHOSTTY_SHADER_DIR=~/.config/ghostty/shaders/ghostty-cursor-shaders
-GHOSTTY_CONFIG=~/.config/ghostty/config
-
-if [[ -d "$GHOSTTY_SHADER_DIR" ]]; then
-  rm -rf "$GHOSTTY_SHADER_DIR"
-  ok "Ghostty cursor shader removed."
-else
-  warn "Ghostty cursor shader directory not found — skipping."
-fi
-
-if [[ -f "$GHOSTTY_CONFIG" ]]; then
-  if grep -qF "ghostty-cursor-shaders" "$GHOSTTY_CONFIG"; then
-    sed -i '/# Cursor elastic animation shader/d' "$GHOSTTY_CONFIG"
-    sed -i '/custom-shader = shaders\/ghostty-cursor-shaders/d' "$GHOSTTY_CONFIG"
-    sed -i '/custom-shader-animation = always/d' "$GHOSTTY_CONFIG"
-    ok "Ghostty config cleaned of cursor shader entries."
-  else
-    warn "No cursor shader entries found in Ghostty config."
-  fi
-else
-  warn "Ghostty config not found — nothing to clean."
-fi
-
-# ── 4. Remove dankshell config from .zshrc ───────────────────────
+# ── 3. Remove dankshell config from .zshrc ───────────────────────
 step "Dankshell config"
 if [[ -f ~/.zshrc ]]; then
   BACKUP=~/.zshrc.uninstall.$(date +%Y%m%d_%H%M%S)
