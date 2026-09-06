@@ -1,0 +1,817 @@
+#!/usr/bin/env bash
+# ════════════════════════════════════════════════════════════════
+#  dankshell — install / uninstall / repair the dankshell zsh setup
+#
+#  Usage:
+#    ./dankshell                    interactive menu
+#    ./dankshell --install          install or update
+#    ./dankshell --uninstall        remove config, keep packages
+#    ./dankshell --uninstall-full   also remove packages we installed
+#    ./dankshell --doctor           find and fix broken aliases
+#    ./dankshell --status           show what is installed
+#    ./dankshell --yes              don't prompt (with any of the above)
+#
+#  Everything this tool installs is recorded in
+#  ~/.local/share/dankshell/manifest, and uninstall removes only what
+#  is listed there. Packages that were already on the machine before
+#  the first install are never recorded and never removed.
+# ════════════════════════════════════════════════════════════════
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ── Colors ───────────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+  RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
+  CYAN=$'\033[0;36m'; DIM=$'\033[2m'; BOLD=$'\033[1m'; RESET=$'\033[0m'
+else
+  RED=''; GREEN=''; YELLOW=''; CYAN=''; DIM=''; BOLD=''; RESET=''
+fi
+
+# ── Paths ────────────────────────────────────────────────────────
+STATE_DIR="$HOME/.local/share/dankshell"
+MANIFEST="$STATE_DIR/manifest"
+BACKUP_DIR="$STATE_DIR/backups"
+ZSH_DIR="$HOME/.zsh"
+LOG="$STATE_DIR/dankshell.log"
+
+BEGIN_MARK='# >>> dankshell >>>'
+END_MARK='# <<< dankshell <<<'
+
+# Packages we may install. Left of the colon is the rpm name, right is
+# the command it provides (used for the status report).
+PKGS=(zsh:zsh fzf:fzf eza:eza neovim:nvim git:git zoxide:zoxide bat:bat glow:glow curl:curl)
+
+YES=""
+ACTION=""
+
+# ── Output helpers ───────────────────────────────────────────────
+ok()   { printf '  %s✔%s  %s\n' "$GREEN" "$RESET" "$1"; }
+warn() { printf '  %s!%s  %s\n' "$YELLOW" "$RESET" "$1"; }
+info() { printf '  %s·%s  %s\n' "$DIM" "$RESET" "$1"; }
+err()  { printf '  %s✘%s  %s\n' "$RED" "$RESET" "$1" >&2; exit 1; }
+
+STEP=0
+step() { STEP=$((STEP + 1)); printf '\n%s%s[%d]%s %s%s%s\n' "$CYAN" "$BOLD" "$STEP" "$RESET" "$BOLD" "$1" "$RESET"; }
+
+title() {
+  printf '\n%s════════════════════════════════════════════════%s\n' "$BOLD" "$RESET"
+  printf '%s   %s%s\n' "$BOLD" "$1" "$RESET"
+  printf '%s════════════════════════════════════════════════%s\n\n' "$BOLD" "$RESET"
+}
+
+# confirm <prompt> — true if the user says yes (or --yes was passed)
+confirm() {
+  [[ -n "$YES" ]] && return 0
+  [[ -t 0 ]] || return 1
+  local reply
+  printf '  %s%s [y/N]:%s ' "$BOLD" "$1" "$RESET"
+  read -r reply
+  [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+# run <description> <command...> — quiet, spinner, log tail on failure
+run() {
+  local msg=$1 rc=0
+  shift
+  if [[ -t 1 ]]; then
+    "$@" >>"$LOG" 2>&1 &
+    local pid=$! frames='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+    while kill -0 "$pid" 2>/dev/null; do
+      printf '\r  %s  %s' "${frames:$((i % 10)):1}" "$msg"
+      i=$((i + 1))
+      sleep 0.1
+    done
+    wait "$pid" || rc=$?
+    printf '\r\033[K'
+  else
+    "$@" >>"$LOG" 2>&1 || rc=$?
+  fi
+  if ((rc != 0)); then
+    printf '  %s✘%s  %s failed (exit %d) — last lines of log:\n' "$RED" "$RESET" "$msg" "$rc"
+    tail -n 20 "$LOG" | sed 's/^/     /'
+    err "Full log: $LOG"
+  fi
+}
+
+# ── Manifest ─────────────────────────────────────────────────────
+# Records exactly what this tool created, so uninstall never guesses.
+mf_init() { mkdir -p "$STATE_DIR" "$BACKUP_DIR"; touch "$MANIFEST"; }
+mf_add()  { mf_init; grep -qxF "$1 $2" "$MANIFEST" 2>/dev/null || printf '%s %s\n' "$1" "$2" >>"$MANIFEST"; }
+# mf_get <kind> — print the values recorded under that kind
+mf_get()  { [[ -f "$MANIFEST" ]] && awk -v k="$1" '$1==k{sub(/^[^ ]+ /,""); print}' "$MANIFEST" || true; }
+
+# ── sudo keepalive ───────────────────────────────────────────────
+SUDO_PID=""
+sudo_start() {
+  [[ -n "$SUDO_PID" ]] && return 0          # already have a keepalive running
+  sudo -v || err "sudo is required to install or remove packages."
+  ( while kill -0 "$$" 2>/dev/null; do sudo -n true 2>/dev/null; sleep 50; done ) &
+  SUDO_PID=$!
+  trap 'sudo_stop' EXIT INT TERM
+}
+sudo_stop() { [[ -n "$SUDO_PID" ]] && kill "$SUDO_PID" 2>/dev/null || true; }
+
+# ════════════════════════════════════════════════════════════════
+#  RC file blocks
+# ════════════════════════════════════════════════════════════════
+
+backup_file() {
+  local f=$1
+  [[ -f "$f" ]] || return 0
+  mkdir -p "$BACKUP_DIR"
+  local base
+  base="$(basename "$f")"
+  # strip the leading dot so the backup isn't itself a hidden file
+  local dest="$BACKUP_DIR/${base#.}.$(date +%Y%m%d_%H%M%S)"
+  # -n so two backups in the same second keep the earlier, unmodified copy
+  cp -n "$f" "$dest"
+  printf '%s' "$dest"
+}
+
+# block_strip <file> — delete the dankshell block, if any
+block_strip() {
+  local f=$1
+  [[ -f "$f" ]] || return 0
+  grep -qF "$BEGIN_MARK" "$f" || return 0
+  sed -i "\|^${BEGIN_MARK}\$|,\|^${END_MARK}\$|d" "$f"
+}
+
+# block_legacy_strip <file> — remove the unmarked lines the old
+# install-zsh-setup.sh appended, so a migrated file doesn't source twice
+block_legacy_strip() {
+  local f=$1
+  [[ -f "$f" ]] || return 0
+  grep -q 'install-zsh-setup.sh\|source ~/.zsh/dankshell.zsh' "$f" || return 0
+  sed -i -e '/Dankshell config (added by install-zsh-setup.sh)/d' \
+         -e '\|^source ~/\.zsh/dankshell\.zsh$|d' "$f"
+}
+
+# block_write <file> <source-line> — idempotently install the block
+block_write() {
+  local f=$1 src=$2
+  [[ -f "$f" ]] && backup_file "$f" >/dev/null
+  block_strip "$f"
+  block_legacy_strip "$f"
+  # Trim trailing blank lines so repeated runs don't grow the file
+  if [[ -f "$f" ]]; then
+    # rewrite in place: mv would replace the file and drop its mode
+    printf '%s\n' "$(cat "$f")" >"$f.dank.tmp"
+    cat "$f.dank.tmp" >"$f"
+    rm -f "$f.dank.tmp"
+  fi
+  {
+    printf '\n%s\n' "$BEGIN_MARK"
+    printf '%s\n' "$src"
+    printf '%s\n' "$END_MARK"
+  } >>"$f"
+  mf_add rc "$f"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Doctor — find aliases and evals pointing at missing commands
+# ════════════════════════════════════════════════════════════════
+# This is what repairs a machine that is already broken: an alias like
+# `alias ls='eza --icons'` left behind after eza was removed makes every
+# `ls` print "Install package 'eza'?" instead of listing files.
+
+DOCTOR_HITS=()   # alias/eval whose target command is not installed  → broken now
+STRAY_HITS=()    # unguarded alias outside our block that dankshell also defines
+                 #   → not broken yet, but will break the moment the tool is removed
+
+# Aliases dankshell defines itself. An unguarded copy of one of these
+# sitting loose in ~/.bashrc is exactly what broke `ls` and `vi` after
+# the old uninstaller removed eza and neovim.
+DANK_ALIASES=" ls ll la lt vi vim cat md mkdir cp mv rm grep df du zshhelp gs ga gc gp gl gd "
+DANK_EVALS=" fzf zoxide "
+
+# scan_rc — one pass over every shell startup file, filling both arrays
+scan_rc() {
+  DOCTOR_HITS=()
+  STRAY_HITS=()
+  local files=() f
+  for f in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.zprofile" "$HOME/.profile"; do
+    [[ -f "$f" ]] && files+=("$f")
+  done
+  shopt -s nullglob
+  for f in "$HOME/.bashrc.d"/*; do [[ -f "$f" ]] && files+=("$f"); done
+  shopt -u nullglob
+
+  for f in "${files[@]}"; do
+    local ln=0 line cmd aname in_block=0 guarded
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      ln=$((ln + 1))
+      # Our own block is self-guarding — skip it
+      [[ "$line" == "$BEGIN_MARK" ]] && { in_block=1; continue; }
+      [[ "$line" == "$END_MARK"   ]] && { in_block=0; continue; }
+      ((in_block)) && continue
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+
+      guarded=0
+      [[ "$line" == *"command -v"* || "$line" == *"which "* || "$line" == *"type -"* ]] && guarded=1
+
+      cmd=""; aname=""
+      if [[ "$line" =~ ^[[:space:]]*alias[[:space:]]+([A-Za-z0-9_.+-]+)=[\"\']?([A-Za-z0-9_.+-]+) ]]; then
+        aname="${BASH_REMATCH[1]}"; cmd="${BASH_REMATCH[2]}"
+      elif [[ "$line" =~ eval[[:space:]]+[\"\']?\$\(([A-Za-z0-9_.+-]+) ]]; then
+        cmd="${BASH_REMATCH[1]}"
+      fi
+      [[ -z "$cmd" ]] && continue
+      ((guarded)) && continue
+
+      if ! command -v "$cmd" >/dev/null 2>&1; then
+        DOCTOR_HITS+=("$f:$ln:$cmd:$line")
+      elif [[ -n "$aname" && "$DANK_ALIASES" == *" $aname "* ]] \
+        || [[ -z "$aname" && "$DANK_EVALS" == *" $cmd "* ]]; then
+        STRAY_HITS+=("$f:$ln:$cmd:$line")
+      fi
+    done <"$f"
+  done
+}
+
+# show_hits <hit...> — print file:line and the offending source line
+show_hits() {
+  local hit f ln cmd line
+  for hit in "$@"; do
+    IFS=: read -r f ln cmd line <<<"$hit"
+    printf '  %s%s:%s%s  %s(%s)%s\n' "$CYAN" "${f/#$HOME/\~}" "$ln" "$RESET" "$YELLOW" "$cmd" "$RESET"
+    printf '      %s%s%s\n' "$DIM" "$line" "$RESET"
+  done
+}
+
+# comment_out <reason> <hit...> — prefix each hit's line with a comment.
+# Prefixing never changes line numbers, so order does not matter.
+comment_out() {
+  local reason=$1; shift
+  local hit f ln cmd line
+  local -A seen=()
+  for hit in "$@"; do
+    IFS=: read -r f ln cmd line <<<"$hit"
+    [[ -n "${seen[$f]:-}" ]] || { backup_file "$f" >/dev/null; seen[$f]=1; }
+    sed -i "${ln}s|^|# dankshell: disabled, ${reason} — |" "$f"
+  done
+}
+
+doctor() {
+  title "Doctor"
+  scan_rc
+  if ((${#DOCTOR_HITS[@]} == 0)); then
+    ok "No aliases or evals point at missing commands."
+  else
+    printf '  %s%d line(s) refer to commands that are not installed.%s\n' \
+      "$BOLD" "${#DOCTOR_HITS[@]}" "$RESET"
+    printf '  %sThese are what make a terminal say "Install package ...?".%s\n\n' "$DIM" "$RESET"
+    show_hits "${DOCTOR_HITS[@]}"
+    echo ""
+    if confirm "Comment these lines out?"; then
+      comment_out "command not found" "${DOCTOR_HITS[@]}"
+      ok "Commented out ${#DOCTOR_HITS[@]} line(s). Backups in ${BACKUP_DIR/#$HOME/\~}"
+    else
+      info "Left unchanged."
+    fi
+  fi
+
+  if ((${#STRAY_HITS[@]})); then
+    echo ""
+    printf '  %s%d unguarded line(s) duplicate aliases dankshell provides.%s\n' \
+      "$BOLD" "${#STRAY_HITS[@]}" "$RESET"
+    printf '  %sThey work today, but will break the next time the tool is removed.%s\n\n' "$DIM" "$RESET"
+    show_hits "${STRAY_HITS[@]}"
+    echo ""
+    if confirm "Comment these out too? (dankshell provides guarded versions)"; then
+      comment_out "superseded by dankshell" "${STRAY_HITS[@]}"
+      ok "Commented out ${#STRAY_HITS[@]} line(s)."
+    else
+      info "Left unchanged."
+    fi
+  fi
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Ghostty cursor shader — removal
+# ════════════════════════════════════════════════════════════════
+# The elastic cursor shader was dropped from this repo, but the old
+# installer left the config lines and the shader checkout behind.
+
+GHOSTTY_CONF="$HOME/.config/ghostty/config"
+SHADER_DIR="$HOME/.config/ghostty/shaders/ghostty-cursor-shaders"
+
+shader_present() {
+  [[ -d "$SHADER_DIR" ]] && return 0
+  [[ -f "$GHOSTTY_CONF" ]] && grep -q 'ghostty-cursor-shaders' "$GHOSTTY_CONF" && return 0
+  return 1
+}
+
+shader_remove() {
+  shader_present || { info "Ghostty cursor shader not present."; return 0; }
+  if [[ -f "$GHOSTTY_CONF" ]] && grep -q 'ghostty-cursor-shaders' "$GHOSTTY_CONF"; then
+    backup_file "$GHOSTTY_CONF" >/dev/null
+    sed -i -e '/^# Cursor elastic animation shader/d' \
+           -e '\|^custom-shader *= *shaders/ghostty-cursor-shaders/|d' \
+           -e '/^custom-shader-animation *= *always/d' "$GHOSTTY_CONF"
+    ok "Cursor shader lines removed from ${GHOSTTY_CONF/#$HOME/\~}"
+  fi
+  if [[ -d "$SHADER_DIR" ]]; then
+    rm -rf "$SHADER_DIR"
+    ok "Shader files removed."
+  fi
+  rmdir "$HOME/.config/ghostty/shaders" 2>/dev/null || true
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Install
+# ════════════════════════════════════════════════════════════════
+
+# clone_or_update <repo-url> <target-dir>
+clone_or_update() {
+  local url=$1 dir=$2 name
+  name=$(basename "$dir")
+  if [[ -d "$dir/.git" ]]; then
+    # fetch+reset, not pull: a --depth 1 clone cannot merge a force-push
+    run "Updating $name" git -C "$dir" fetch --depth 1 origin HEAD
+    run "Updating $name" git -C "$dir" reset --hard FETCH_HEAD
+  else
+    rm -rf "$dir"
+    run "Cloning $name" git clone --depth 1 "$url" "$dir"
+  fi
+  mf_add dir "$dir"
+}
+
+write_cheatsheet() {
+  mkdir -p "$ZSH_DIR"
+  cat >"$ZSH_DIR/cheatsheet.txt" <<'SHEET'
+
+──────────────────────────────────────────────────────────────
+ INSTALLED COMPONENTS
+──────────────────────────────────────────────────────────────
+  zsh                      default shell, git-aware prompt: [user@host]~/path (branch)
+  zsh-syntax-highlighting  commands turn green (valid) / red (invalid) as you type
+  zsh-autosuggestions      grey ghost-text suggestions from your history
+  fzf + fzf-tab            fuzzy history/file search, fuzzy Tab completion with previews
+  eza                      modern ls with icons (ls/ll/la/lt aliases)
+  zoxide                   smarter cd — z <partial-path> jumps to dirs you visit often
+  bat                      cat with syntax highlighting (cat alias, file previews in Tab menu)
+  glow                     markdown reader in the terminal (md file.md)
+  neovim                   default editor ($EDITOR/$VISUAL, vi/vim aliases)
+
+──────────────────────────────────────────────────────────────
+ KEYBINDINGS
+──────────────────────────────────────────────────────────────
+  Ctrl+R           fuzzy search command history
+  Ctrl+F           fuzzy find files (inserts path at cursor)
+  Tab              fuzzy completion menu with directory preview
+  ↑ / ↓            search history filtered by what you've typed
+  → / Ctrl+Space   accept the grey autosuggestion
+  Alt+F            accept autosuggestion one word at a time
+  Ctrl+← / Ctrl+→  jump backward / forward one word
+  Ctrl+Backspace   delete the previous word
+
+──────────────────────────────────────────────────────────────
+ ALIASES
+──────────────────────────────────────────────────────────────
+  ls / la          list files / incl. hidden (icons)
+  ll               long listing incl. hidden
+  lt               tree view, 2 levels deep
+  vi / vim         open neovim
+  cat              bat (plain) — colored text, no line numbers, copies clean
+  md               glow — render a markdown file, paged
+  z / zi           jump to a frecent dir / pick one interactively (zoxide)
+  .. / ...         up one / two directories
+  cp / mv          interactive + verbose (asks before overwrite)
+  rm               rm -Iv — asks once when deleting 4+ files
+  mkdir            creates parent dirs automatically (-pv)
+  grep / df / du   colored / human-readable sizes
+  zshhelp          show this cheatsheet again
+
+  Git:  gs status   ga add   gc commit   gp push   gd diff   gl pretty log
+
+──────────────────────────────────────────────────────────────
+ SHELL BEHAVIOR
+──────────────────────────────────────────────────────────────
+  • Type a directory name alone to cd into it (auto-cd)
+  • Mistyped a command? zsh offers a spelling correction
+  • History is shared live across all open terminals (duplicates skipped)
+  • Start a command with a space to keep it out of history
+  • Every cd is pushed to the dir stack: dirs -v to list, cd -2 to jump back
+
+  Every alias is guarded: if a tool is missing you get the real command
+  back, never a "Install package ...?" prompt.
+
+──────────────────────────────────────────────────────────────
+ MANAGE
+──────────────────────────────────────────────────────────────
+  Run ./dankshell from the repo to update, uninstall, or repair.
+
+SHEET
+  mf_add file "$ZSH_DIR/cheatsheet.txt"
+}
+
+do_install() {
+  title "dankshell — install / update"
+  STEP=0
+  mf_init
+  : >"$LOG"
+
+  [[ -f "$SCRIPT_DIR/dankshell.zsh" ]] || err "dankshell.zsh not found next to this script."
+  [[ -f "$SCRIPT_DIR/dankshell.bash" ]] || err "dankshell.bash not found next to this script."
+
+  command -v dnf >/dev/null || err "dnf not found — this tool targets Fedora."
+
+  if ! curl -s --max-time 5 https://github.com >/dev/null 2>&1; then
+    warn "Could not reach github.com — plugin clones may fail."
+  fi
+
+  sudo_start
+
+  # ── Packages ───────────────────────────────────────────────────
+  step "Packages"
+  local entry pkg missing=()
+  for entry in "${PKGS[@]}"; do
+    pkg="${entry%%:*}"
+    if rpm -q "$pkg" >/dev/null 2>&1; then
+      info "$pkg already installed — will not be removed on uninstall."
+    else
+      missing+=("$pkg")
+    fi
+  done
+  if ((${#missing[@]})); then
+    run "Installing ${missing[*]}" sudo dnf install -y "${missing[@]}"
+    for pkg in "${missing[@]}"; do mf_add pkg "$pkg"; done
+    ok "Installed: ${missing[*]}"
+  else
+    ok "All packages already present."
+  fi
+
+  # ── Plugins ────────────────────────────────────────────────────
+  step "Zsh plugins"
+  mkdir -p "$ZSH_DIR"
+  mf_add dir "$ZSH_DIR"
+  clone_or_update https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_DIR/zsh-syntax-highlighting"
+  clone_or_update https://github.com/zsh-users/zsh-autosuggestions     "$ZSH_DIR/zsh-autosuggestions"
+  clone_or_update https://github.com/Aloxaf/fzf-tab                    "$ZSH_DIR/fzf-tab"
+  ok "Plugins ready."
+
+  # Migrate away from the old ~/.oh-my-zsh squat
+  if [[ -d "$HOME/.oh-my-zsh/custom/plugins/fzf-tab" ]]; then
+    rm -rf "$HOME/.oh-my-zsh/custom/plugins/fzf-tab"
+    rmdir "$HOME/.oh-my-zsh/custom/plugins" "$HOME/.oh-my-zsh/custom" "$HOME/.oh-my-zsh" 2>/dev/null || true
+    ok "Migrated fzf-tab out of ~/.oh-my-zsh."
+  fi
+
+  # ── Config ─────────────────────────────────────────────────────
+  step "Shell config"
+  install -Dm644 "$SCRIPT_DIR/dankshell.zsh"  "$ZSH_DIR/dankshell.zsh"
+  install -Dm644 "$SCRIPT_DIR/dankshell.bash" "$ZSH_DIR/dankshell.bash"
+  mf_add file "$ZSH_DIR/dankshell.zsh"
+  mf_add file "$ZSH_DIR/dankshell.bash"
+
+  block_write "$HOME/.zshrc"  '[ -f "$HOME/.zsh/dankshell.zsh" ] && . "$HOME/.zsh/dankshell.zsh"'
+  ok "~/.zshrc hooked up."
+  # bash gets the same aliases, guarded. This is what stops a fresh bash
+  # terminal from breaking after zsh or eza is ever removed.
+  block_write "$HOME/.bashrc" '[ -f "$HOME/.zsh/dankshell.bash" ] && . "$HOME/.zsh/dankshell.bash"'
+  ok "~/.bashrc hooked up."
+
+  write_cheatsheet
+  ok "Cheatsheet written (run zshhelp)."
+
+  # ── Cursor shader cleanup ──────────────────────────────────────
+  step "Ghostty cursor shader"
+  shader_remove
+
+  # ── Default shell ──────────────────────────────────────────────
+  step "Default shell"
+  local zsh_path current
+  zsh_path="$(command -v zsh)"
+  current="$(getent passwd "$USER" | cut -d: -f7)"
+  if [[ "$current" == "$zsh_path" ]]; then
+    ok "Default shell is already zsh."
+  elif ! grep -qxF "$zsh_path" /etc/shells; then
+    warn "$zsh_path is not in /etc/shells — leaving your login shell alone."
+  else
+    sudo chsh -s "$zsh_path" "$USER"
+    mf_add shell "$current"
+    ok "Default shell changed to zsh (was $current)."
+  fi
+
+  # ── Adopt or disable stray aliases ─────────────────────────────
+  # Unguarded aliases loose in ~/.bashrc are what broke `ls` and `vi`
+  # after the old uninstaller ran. dankshell now provides guarded
+  # equivalents, so offer to retire the loose copies here rather than
+  # waiting for them to break at uninstall time.
+  step "Stray shell aliases"
+  scan_rc
+  if ((${#DOCTOR_HITS[@]} == 0 && ${#STRAY_HITS[@]} == 0)); then
+    ok "No stray or broken aliases."
+  else
+    doctor
+  fi
+
+  printf '\n%s%s   Done.%s\n\n' "$GREEN" "$BOLD" "$RESET"
+  printf '  Run %sexec zsh%s to start now, or open a new terminal.\n' "$CYAN" "$RESET"
+  printf '  Cheatsheet: %szshhelp%s    Log: %s%s%s\n\n' "$CYAN" "$RESET" "$DIM" "$LOG" "$RESET"
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Uninstall
+# ════════════════════════════════════════════════════════════════
+
+# do_uninstall <full|config>
+do_uninstall() {
+  local mode=$1
+  title "dankshell — uninstall (${mode})"
+  STEP=0
+  mf_init
+  : >"$LOG"
+
+  if [[ ! -s "$MANIFEST" ]]; then
+    warn "No manifest found — this setup was installed by the old scripts."
+    warn "Config will still be cleaned up, but no packages will be removed."
+    warn "Remove those by hand if you want them gone."
+  fi
+
+  # ── Default shell (before removing zsh, never after) ───────────
+  step "Default shell"
+  local bash_path current
+  bash_path="$(command -v bash)"
+  current="$(getent passwd "$USER" | cut -d: -f7)"
+  if [[ "$current" == "$bash_path" ]]; then
+    ok "Login shell is already bash."
+  elif [[ ! -x "$bash_path" ]] || ! grep -qxF "$bash_path" /etc/shells; then
+    err "Refusing to change your shell: $bash_path is missing or not in /etc/shells."
+  else
+    sudo_start
+    sudo chsh -s "$bash_path" "$USER"
+    ok "Login shell reverted to bash."
+  fi
+
+  # ── Config blocks ──────────────────────────────────────────────
+  step "Shell config"
+  local f
+  local -a rcs=("$HOME/.zshrc" "$HOME/.bashrc")
+  while IFS= read -r f; do [[ -n "$f" ]] && rcs+=("$f"); done < <(mf_get rc)
+  for f in "${rcs[@]}"; do
+    [[ -f "$f" ]] || continue
+    grep -qF "$BEGIN_MARK" "$f" || continue
+    backup_file "$f" >/dev/null
+    block_strip "$f"
+    ok "dankshell block removed from ${f/#$HOME/\~}"
+  done
+  # Legacy: the old installer's source line and comment
+  for f in "$HOME/.zshrc"; do
+    [[ -f "$f" ]] || continue
+    if grep -q 'dankshell.zsh\|install-zsh-setup.sh' "$f"; then
+      backup_file "$f" >/dev/null
+      sed -i -e '/Dankshell config (added by install-zsh-setup.sh)/d' \
+             -e '\|source ~/.zsh/dankshell.zsh|d' "$f"
+      ok "Legacy dankshell lines removed from ${f/#$HOME/\~}"
+    fi
+  done
+  # If ~/.zshrc is now empty it was ours to begin with
+  if [[ -f "$HOME/.zshrc" && -z "$(tr -d '[:space:]' <"$HOME/.zshrc")" ]]; then
+    rm -f "$HOME/.zshrc"
+    ok "~/.zshrc was empty — removed (backup kept)."
+  fi
+
+  # ── Files and plugin dirs ──────────────────────────────────────
+  step "Files and plugins"
+  while read -r f; do [[ -n "$f" ]] && rm -f "$f"; done < <(mf_get file)
+  while read -r f; do
+    [[ -n "$f" && "$f" != "$HOME" && "$f" == "$HOME"/* ]] || continue
+    [[ "$f" == "$ZSH_DIR" ]] && continue   # only rmdir'd if empty, below
+    rm -rf "$f"
+  done < <(mf_get dir)
+  # Legacy locations the old scripts used
+  rm -f  "$HOME/.zsh/dankshell.zsh" "$HOME/.zsh/dankshell.bash" "$HOME/.zsh/cheatsheet.txt"
+  rm -rf "$HOME/.zsh/zsh-syntax-highlighting" "$HOME/.zsh/zsh-autosuggestions" "$HOME/.zsh/fzf-tab"
+  rm -rf "$HOME/.oh-my-zsh/custom/plugins/fzf-tab"
+  rmdir "$HOME/.oh-my-zsh/custom/plugins" "$HOME/.oh-my-zsh/custom" "$HOME/.oh-my-zsh" 2>/dev/null || true
+  rmdir "$ZSH_DIR" 2>/dev/null && ok "~/.zsh removed." || ok "Config and plugins removed."
+
+  # ── Cursor shader ──────────────────────────────────────────────
+  step "Ghostty cursor shader"
+  shader_remove
+
+  # ── Packages (full only) ───────────────────────────────────────
+  if [[ "$mode" == "full" ]]; then
+    step "Packages"
+    local pkgs=() p
+    while read -r p; do [[ -n "$p" ]] && rpm -q "$p" >/dev/null 2>&1 && pkgs+=("$p"); done < <(mf_get pkg)
+    if ((${#pkgs[@]} == 0)); then
+      ok "Nothing to remove — no packages were installed by this tool."
+    else
+      printf '  These packages were installed by dankshell and will be removed:\n'
+      printf '    %s%s%s\n' "$BOLD" "${pkgs[*]}" "$RESET"
+      printf '  %sAnything already on this machine before the first install is kept.%s\n\n' "$DIM" "$RESET"
+      if confirm "Remove them?"; then
+        sudo_start
+        # clean_requirements_on_remove=False stops dnf sweeping up orphans:
+        # a plain `dnf remove neovim` also takes nodejs, ripgrep and xsel.
+        run "Removing ${pkgs[*]}" sudo dnf remove -y \
+          --setopt=clean_requirements_on_remove=False "${pkgs[@]}"
+        ok "Packages removed."
+      else
+        info "Packages kept."
+      fi
+    fi
+
+    step "History and caches"
+    rm -f  "$HOME/.zsh_history" "$HOME"/.zcompdump*
+    rm -rf "$HOME/.local/share/zoxide"
+    ok "Zsh history, completion cache and zoxide database removed."
+  fi
+
+  if [[ "$mode" == "full" ]]; then
+    rm -f "$MANIFEST"
+  else
+    # Keep the pkg records: those packages are still installed, and a later
+    # --uninstall-full needs to know they were ours. Drop everything else.
+    if [[ -f "$MANIFEST" ]]; then
+      mf_get pkg | sed 's/^/pkg /' >"$MANIFEST.tmp"
+      mv "$MANIFEST.tmp" "$MANIFEST"
+    fi
+  fi
+
+  # ── Repair whatever is now dangling ────────────────────────────
+  step "Checking for broken aliases"
+  scan_rc
+  if ((${#DOCTOR_HITS[@]})); then
+    echo ""
+    warn "Some lines in your shell files still point at removed commands."
+    warn "Left alone, a new terminal will say \"Install package ...?\" for them."
+    echo ""
+    doctor
+  else
+    ok "No broken aliases — your next terminal will be clean."
+  fi
+
+  printf '\n%s%s   Uninstalled.%s\n\n' "$GREEN" "$BOLD" "$RESET"
+  printf '  Backups kept in %s%s%s\n' "$CYAN" "${BACKUP_DIR/#$HOME/\~}" "$RESET"
+  printf '  Log out and back in to land in bash.\n\n'
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Status
+# ════════════════════════════════════════════════════════════════
+
+do_status() {
+  title "dankshell — status"
+  local entry pkg cmd
+  printf '  %sCommands%s\n' "$BOLD" "$RESET"
+  for entry in "${PKGS[@]}"; do
+    pkg="${entry%%:*}"; cmd="${entry##*:}"
+    if command -v "$cmd" >/dev/null 2>&1; then ok "$cmd  $(command -v "$cmd")"
+    else warn "$cmd  not installed"; fi
+  done
+
+  printf '\n  %sPlugins%s\n' "$BOLD" "$RESET"
+  local d
+  for d in zsh-syntax-highlighting zsh-autosuggestions fzf-tab; do
+    [[ -d "$ZSH_DIR/$d" ]] && ok "$d" || warn "$d missing"
+  done
+
+  printf '\n  %sConfig%s\n' "$BOLD" "$RESET"
+  [[ -f "$ZSH_DIR/dankshell.zsh"  ]] && ok "~/.zsh/dankshell.zsh"  || warn "~/.zsh/dankshell.zsh missing"
+  [[ -f "$ZSH_DIR/dankshell.bash" ]] && ok "~/.zsh/dankshell.bash" || warn "~/.zsh/dankshell.bash missing"
+  local f
+  for f in "$HOME/.zshrc" "$HOME/.bashrc"; do
+    if [[ -f "$f" ]] && grep -qF "$BEGIN_MARK" "$f"; then
+      ok "${f/#$HOME/\~} sources dankshell ($(grep -cF "$BEGIN_MARK" "$f") block)"
+    else
+      warn "${f/#$HOME/\~} does not source dankshell"
+    fi
+  done
+
+  printf '\n  %sShell%s\n' "$BOLD" "$RESET"
+  info "login shell: $(getent passwd "$USER" | cut -d: -f7)"
+
+  printf '\n  %sGhostty cursor shader%s\n' "$BOLD" "$RESET"
+  if shader_present; then warn "still present (dropped from this repo — run install or uninstall to clean)"
+  else ok "not present"; fi
+
+  printf '\n  %sManifest%s\n' "$BOLD" "$RESET"
+  if [[ -s "$MANIFEST" ]]; then
+    local n
+    n=$(mf_get pkg | grep -c . || true)
+    ok "${MANIFEST/#$HOME/\~} — $n package(s) recorded as installed by dankshell"
+    [[ "$n" != 0 ]] && info "removable: $(mf_get pkg | tr '\n' ' ')"
+  else
+    warn "no manifest — uninstall will not remove any packages"
+  fi
+
+  printf '\n  %sStray aliases%s\n' "$BOLD" "$RESET"
+  scan_rc
+  if ((${#DOCTOR_HITS[@]})); then
+    warn "${#DOCTOR_HITS[@]} line(s) point at missing commands — run --doctor"
+  else
+    ok "none broken"
+  fi
+  if ((${#STRAY_HITS[@]})); then
+    warn "${#STRAY_HITS[@]} unguarded line(s) duplicate dankshell aliases — run --doctor"
+  else
+    ok "none unguarded"
+  fi
+  echo ""
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Menu
+# ════════════════════════════════════════════════════════════════
+
+MENU_CHOICE=0
+
+# menu <item...> — arrow keys / j / k / 1-9 / Enter, sets MENU_CHOICE
+menu() {
+  local -a items=("$@")
+  local n=${#items[@]} sel=0 key rest i
+
+  if [[ ! -t 0 || ! -t 1 ]]; then
+    for ((i = 0; i < n; i++)); do printf '  %d) %s\n' "$((i + 1))" "${items[i]}"; done
+    printf '  Choice: '
+    read -r key
+    [[ "$key" =~ ^[0-9]+$ ]] && ((key >= 1 && key <= n)) || err "Invalid choice."
+    MENU_CHOICE=$((key - 1))
+    return
+  fi
+
+  printf '\033[?25l'                      # hide cursor
+  trap 'printf "\033[?25h"' RETURN
+  while :; do
+    for ((i = 0; i < n; i++)); do
+      if ((i == sel)); then
+        printf '  %s%s▸ %s%s\033[K\n' "$CYAN" "$BOLD" "${items[i]}" "$RESET"
+      else
+        printf '    %s\033[K\n' "${items[i]}"
+      fi
+    done
+    IFS= read -rsn1 key || key=q
+    case "$key" in
+      $'\033')
+        read -rsn2 -t 0.05 rest || rest=""
+        case "$rest" in
+          '[A') sel=$(((sel - 1 + n) % n)) ;;
+          '[B') sel=$(((sel + 1) % n)) ;;
+        esac ;;
+      k) sel=$(((sel - 1 + n) % n)) ;;
+      j) sel=$(((sel + 1) % n)) ;;
+      '') break ;;                        # Enter
+      [1-9]) ((key <= n)) && { sel=$((key - 1)); break; } ;;
+      q) sel=$((n - 1)); break ;;
+    esac
+    printf '\033[%dA' "$n"                # rewind and redraw
+  done
+  printf '\033[?25h'
+  MENU_CHOICE=$sel
+}
+
+do_menu() {
+  title "dankshell"
+  printf '  %s↑↓ or j/k to move, Enter to select, q to quit%s\n\n' "$DIM" "$RESET"
+  menu \
+    "Install / update" \
+    "Uninstall — config only (keep packages)" \
+    "Uninstall — everything (also remove packages we installed)" \
+    "Doctor  (find & fix broken aliases)" \
+    "Status" \
+    "Quit"
+  echo ""
+  case "$MENU_CHOICE" in
+    0) do_install ;;
+    1) confirm "Remove the dankshell config and revert to bash?" && do_uninstall config || echo "  Aborted." ;;
+    2) confirm "Remove config AND the packages dankshell installed?" && do_uninstall full || echo "  Aborted." ;;
+    3) doctor ;;
+    4) do_status ;;
+    5) echo "  Bye." ;;
+  esac
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Entry point
+# ════════════════════════════════════════════════════════════════
+
+[[ $EUID -eq 0 ]] && err "Don't run this as root. Run as your normal user — sudo is used where needed."
+
+for arg in "$@"; do
+  case "$arg" in
+    --install)         ACTION=install ;;
+    --uninstall)       ACTION=uninstall-config ;;
+    --uninstall-full)  ACTION=uninstall-full ;;
+    --doctor)          ACTION=doctor ;;
+    --status)          ACTION=status ;;
+    --yes|-y)          YES=1 ;;
+    --help|-h)         sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'; exit 0 ;;
+    *) err "Unknown option: $arg (try --help)" ;;
+  esac
+done
+
+mkdir -p "$STATE_DIR"
+
+case "$ACTION" in
+  install)          do_install ;;
+  uninstall-config) do_uninstall config ;;
+  uninstall-full)   do_uninstall full ;;
+  doctor)           doctor ;;
+  status)           do_status ;;
+  *)                do_menu ;;
+esac

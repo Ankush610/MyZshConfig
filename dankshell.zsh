@@ -1,8 +1,15 @@
 # ════════════════════════════════════════════════════════════════
-#  ~/.zshrc — Fedora / Ghostty + Dankshell
-#  Colors come entirely from Ghostty (theme = dankcolors).
-#  This file never touches TERM, LS_COLORS, or EZA_COLORS —
-#  it just inherits whatever Ghostty sets in the environment.
+#  dankshell.zsh — sourced from ~/.zshrc by the `dankshell` tool.
+#
+#  Do NOT copy this over ~/.zshrc. It is a fragment; ~/.zshrc keeps
+#  your own config and sources this between the dankshell markers.
+#
+#  Colors come entirely from the terminal (Ghostty theme).
+#  This file never touches TERM, LS_COLORS or EZA_COLORS.
+#
+#  Every alias is guarded by `command -v`. If a tool is missing the
+#  alias is simply not defined, so `ls` falls back to real ls rather
+#  than to "Install package 'eza'?".
 # ════════════════════════════════════════════════════════════════
 
 # ── Path ─────────────────────────────────────────────────────────
@@ -27,14 +34,15 @@ HISTSIZE=10000
 SAVEHIST=10000
 
 # ── Completion ───────────────────────────────────────────────────
-autoload -Uz compinit && compinit
+# -i: skip insecure-directory prompts instead of blocking startup
+autoload -Uz compinit && compinit -i
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
-# Inherit LS_COLORS set by Ghostty — do not override
+# Inherit LS_COLORS set by the terminal — do not override
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 
 # ── fzf-tab ──────────────────────────────────────────────────────
-source ~/.oh-my-zsh/custom/plugins/fzf-tab/fzf-tab.plugin.zsh 2>/dev/null || true
+source ~/.zsh/fzf-tab/fzf-tab.plugin.zsh 2>/dev/null || true
 
 if command -v eza &>/dev/null; then
   zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null'
@@ -66,13 +74,19 @@ bindkey '^F' fzf-file-widget
 # ── zoxide (smarter cd: z <partial-path>) ────────────────────────
 command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 
-# ── Aliases ──────────────────────────────────────────────────────
-alias ls='eza --icons'
-alias ll='eza -la --icons'
-alias lt='eza --tree --level=2 --icons'
-alias la='eza -a --icons'
-alias vi='nvim'
-alias vim='nvim'
+# ── Aliases (all guarded — a missing tool just means no alias) ────
+if command -v eza &>/dev/null; then
+  alias ls='eza --icons'
+  alias ll='eza -la --icons'
+  alias lt='eza --tree --level=2 --icons'
+  alias la='eza -a --icons'
+fi
+if command -v nvim &>/dev/null; then
+  alias vi='nvim'
+  alias vim='nvim'
+  export EDITOR='nvim'
+  export VISUAL='nvim'
+fi
 command -v bat  &>/dev/null && alias cat='bat --plain --paging=never'
 command -v glow &>/dev/null && alias md='glow -p'
 
@@ -81,11 +95,13 @@ alias ...='cd ../..'
 alias mkdir='mkdir -pv'
 alias cp='cp -iv'
 alias mv='mv -iv'
-alias rm='rm -iv'
+# -I prompts once for 4+ files instead of once per file: safe without
+# training you to hold down y.
+alias rm='rm -Iv'
 alias grep='grep --color=auto'
 alias df='df -h'
 alias du='du -sh'
-alias zshhelp='command cat ~/.zsh/cheatsheet.txt 2>/dev/null || echo "cheatsheet not found — re-run install-zsh-setup.sh"'
+alias zshhelp='command cat ~/.zsh/cheatsheet.txt 2>/dev/null || echo "cheatsheet not found — re-run dankshell"'
 
 # ── Git Aliases ──────────────────────────────────────────────────
 alias gs='git status'
@@ -118,8 +134,6 @@ precmd() { vcs_info }
 zstyle ':vcs_info:git:*' formats ' %F{3}(%b)%f'
 PROMPT="%F{2}[%n@%m]%f%F{4}%~%f\${vcs_info_msg_0_}%F{4}%#%f "
 
-# ── Editors ──────────────────────────────────────────────────────
-export EDITOR='nvim'
-export VISUAL='nvim'
+# ── Pager ────────────────────────────────────────────────────────
 export PAGER='less'
 export LESS='-R'
