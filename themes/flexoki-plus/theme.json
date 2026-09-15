@@ -1,0 +1,225 @@
+{
+  "id": "flexoki-plus",
+  "name": "Flexoki Plus",
+  "version": "1.0.0",
+  "author": "Euan Deas",
+  "description": "Inky color scheme for prose and code by Steph Ango",
+  "dark": {
+    "primaryText": "#100F0F",
+    "primaryContainer": "#205EA6",
+    "surface": "#100F0F",
+    "surfaceText": "#CECDC3",
+    "surfaceVariant": "#100F0F",
+    "surfaceVariantText": "#CECDC3",
+    "background": "#100F0F",
+    "backgroundText": "#CECDC3",
+    "outline": "#575653",
+    "surfaceContainer": "#1C1B1A",
+    "surfaceContainerHigh": "#282726",
+    "surfaceContainerHighest": "#343331",
+    "error": "#D14D41",
+    "warning": "#DA702C"
+  },
+  "light": {
+    "primaryText": "#CECDC3",
+    "primaryContainer": "#163B66",
+    "surface": "#FFFCF0",
+    "surfaceText": "#100F0F",
+    "surfaceVariant": "#FFFCF0",
+    "surfaceVariantText": "#100F0F",
+    "background": "#FFFCF0",
+    "backgroundText": "#100F0F",
+    "outline": "#B7B5AC",
+    "surfaceContainer": "#F2F0E5",
+    "surfaceContainerHigh": "#E6E4D9",
+    "surfaceContainerHighest": "#DAD8CE",
+    "error": "#AF3029",
+    "warning": "#BC5215"
+  },
+  "variants": {
+    "type": "multi",
+    "defaults": {
+      "dark": {
+        "flavor": "dark",
+        "accent": "blue"
+      },
+      "light": {
+        "flavor": "light",
+        "accent": "blue"
+      }
+    },
+    "flavors": [
+      {
+        "id": "dark",
+        "name": "Dark",
+        "dark": {
+          "primaryText": "#100F0F",
+          "primaryContainer": "#205EA6",
+          "surface": "#100F0F",
+          "surfaceText": "#CECDC3",
+          "surfaceVariant": "#100F0F",
+          "surfaceVariantText": "#CECDC3",
+          "background": "#100F0F",
+          "backgroundText": "#CECDC3",
+          "outline": "#575653",
+          "surfaceContainer": "#1C1B1A",
+          "surfaceContainerHigh": "#282726",
+          "surfaceContainerHighest": "#343331",
+          "error": "#D14D41",
+          "warning": "#DA702C"
+        }
+      },
+      {
+        "id": "light",
+        "name": "Light",
+        "light": {
+          "primaryText": "#CECDC3",
+          "primaryContainer": "#163B66",
+          "surface": "#FFFCF0",
+          "surfaceText": "#100F0F",
+          "surfaceVariant": "#FFFCF0",
+          "surfaceVariantText": "#100F0F",
+          "background": "#FFFCF0",
+          "backgroundText": "#100F0F",
+          "outline": "#B7B5AC",
+          "surfaceContainer": "#F2F0E5",
+          "surfaceContainerHigh": "#E6E4D9",
+          "surfaceContainerHighest": "#DAD8CE",
+          "error": "#AF3029",
+          "warning": "#BC5215"
+        }
+      }
+    ],
+    "accents": [
+      {
+        "id": "blue",
+        "name": "Blue",
+        "dark": {
+          "primary": "#4385BE",
+          "secondary": "#4385BE",
+          "surfaceTint": "#66A0C8",
+          "info": "#4385BE"
+        },
+        "light": {
+          "primary": "#205EA6",
+          "secondary": "#205EA6",
+          "surfaceTint": "#3171B2",
+          "info": "#205EA6"
+        }
+      },
+      {
+        "id": "coral",
+        "name": "Coral Pink",
+        "dark": {
+          "primary": "#FF6B6B",
+          "secondary": "#FF6B6B",
+          "surfaceTint": "#FF8989",
+          "info": "#FF6B6B"
+        },
+        "light": {
+          "primary": "#8F3C3C",
+          "secondary": "#8F3C3C",
+          "surfaceTint": "#9A5050",
+          "info": "#8F3C3C"
+        }
+      },
+      {
+        "id": "orange",
+        "name": "Orange",
+        "dark": {
+          "primary": "#FFA552",
+          "secondary": "#FFA552",
+          "surfaceTint": "#FFB775",
+          "info": "#FFA552"
+        },
+        "light": {
+          "primary": "#784E27",
+          "secondary": "#784E27",
+          "surfaceTint": "#86603D",
+          "info": "#784E27"
+        }
+      },
+      {
+        "id": "yellow",
+        "name": "Yellow",
+        "dark": {
+          "primary": "#FFD23F",
+          "secondary": "#FFD23F",
+          "surfaceTint": "#FFDB65",
+          "info": "#FFD23F"
+        },
+        "light": {
+          "primary": "#665419",
+          "secondary": "#665419",
+          "surfaceTint": "#756530",
+          "info": "#665419"
+        }
+      },
+      {
+        "id": "green",
+        "name": "Green",
+        "dark": {
+          "primary": "#658D6D",
+          "secondary": "#658D6D",
+          "surfaceTint": "#84A48A",
+          "info": "#658D6D"
+        },
+        "light": {
+          "primary": "#435D48",
+          "secondary": "#435D48",
+          "surfaceTint": "#566D5A",
+          "info": "#435D48"
+        }
+      },
+      {
+        "id": "purple",
+        "name": "Purple",
+        "dark": {
+          "primary": "#8B7EC8",
+          "secondary": "#8B7EC8",
+          "surfaceTint": "#A699D0",
+          "info": "#8B7EC8"
+        },
+        "light": {
+          "primary": "#5E409D",
+          "secondary": "#5E409D",
+          "surfaceTint": "#735EB5",
+          "info": "#5E409D"
+        }
+      },
+      {
+        "id": "magenta",
+        "name": "Magenta",
+        "dark": {
+          "primary": "#CE5D97",
+          "secondary": "#CE5D97",
+          "surfaceTint": "#E47DA8",
+          "info": "#CE5D97"
+        },
+        "light": {
+          "primary": "#A02F6F",
+          "secondary": "#A02F6F",
+          "surfaceTint": "#B74583",
+          "info": "#A02F6F"
+        }
+      },
+      {
+        "id": "slate",
+        "name": "Slate",
+        "dark": {
+          "primary": "#6F8EAD",
+          "secondary": "#6F8EAD",
+          "surfaceTint": "#8CA5BD",
+          "info": "#6F8EAD"
+        },
+        "light": {
+          "primary": "#46596D",
+          "secondary": "#46596D",
+          "surfaceTint": "#586A7C",
+          "info": "#46596D"
+        }
+      }
+    ]
+  },
+  "sourceDir": "flexoki-plus"
+}
