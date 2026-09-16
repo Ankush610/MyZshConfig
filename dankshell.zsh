@@ -113,6 +113,11 @@ alias gp='git push'
 alias gl='git log --oneline --graph --decorate'
 alias gd='git diff'
 
+# ── SSH ──────────────────────────────────────────────────────────
+# Remote hosts don't know xterm-ghostty ("unknown terminal type"),
+# so hand them a TERM they do. Only the ssh child sees it.
+[[ "$TERM" == xterm-ghostty ]] && ssh() { TERM=xterm-256color command ssh "$@"; }
+
 # ── History Search (Arrow Keys) ──────────────────────────────────
 autoload -U history-search-end
 zle -N history-beginning-search-backward-end history-search-end

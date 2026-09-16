@@ -215,8 +215,9 @@ scan_rc() {
       [[ "$line" == *"command -v"* || "$line" == *"which "* || "$line" == *"type -"* ]] && guarded=1
 
       cmd=""; aname=""
-      if [[ "$line" =~ ^[[:space:]]*alias[[:space:]]+([A-Za-z0-9_.+-]+)=[\"\']?([A-Za-z0-9_.+-]+) ]]; then
-        aname="${BASH_REMATCH[1]}"; cmd="${BASH_REMATCH[2]}"
+      # skip leading VAR=value assignments: alias ssh='TERM=xterm-256color ssh'
+      if [[ "$line" =~ ^[[:space:]]*alias[[:space:]]+([A-Za-z0-9_.+-]+)=[\"\']?([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*([A-Za-z0-9_.+-]+) ]]; then
+        aname="${BASH_REMATCH[1]}"; cmd="${BASH_REMATCH[3]}"
       elif [[ "$line" =~ eval[[:space:]]+[\"\']?\$\(([A-Za-z0-9_.+-]+) ]]; then
         cmd="${BASH_REMATCH[1]}"
       fi

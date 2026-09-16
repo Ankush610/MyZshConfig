@@ -47,6 +47,9 @@ alias gp='git push'
 alias gl='git log --oneline --graph --decorate'
 alias gd='git diff'
 
+# Remote hosts don't know xterm-ghostty ("unknown terminal type")
+[[ "$TERM" == xterm-ghostty ]] && ssh() { TERM=xterm-256color command ssh "$@"; }
+
 command -v fzf    &>/dev/null && eval "$(fzf --bash)" 2>/dev/null
 command -v zoxide &>/dev/null && eval "$(zoxide init bash)"
 
