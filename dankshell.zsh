@@ -16,6 +16,8 @@
 if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]; then
   PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 fi
+# cargo install puts binaries here (mdt)
+[[ -d "$HOME/.cargo/bin" && ":$PATH:" != *":$HOME/.cargo/bin:"* ]] && PATH="$PATH:$HOME/.cargo/bin"
 export PATH
 
 # ── Zsh Options ──────────────────────────────────────────────────
@@ -88,7 +90,7 @@ if command -v nvim &>/dev/null; then
   export VISUAL='nvim'
 fi
 command -v bat  &>/dev/null && alias cat='bat --plain --paging=never'
-command -v glow &>/dev/null && alias md='glow -p'
+command -v mdt  &>/dev/null && alias md='mdt'
 
 alias ..='cd ..'
 alias ...='cd ../..'

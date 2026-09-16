@@ -41,7 +41,10 @@ END_MARK='# <<< dankshell <<<'
 
 # Packages we may install. Left of the colon is the rpm name, right is
 # the command it provides (used for the status report).
-PKGS=(zsh:zsh fzf:fzf eza:eza neovim:nvim git:git zoxide:zoxide bat:bat glow:glow curl:curl)
+PKGS=(zsh:zsh fzf:fzf eza:eza neovim:nvim git:git zoxide:zoxide bat:bat cargo:cargo curl:curl)
+
+# Crates installed with `cargo install`. Left is the crate, right the command.
+CRATES=(mdtui:mdt)
 
 YES=""
 ACTION=""
@@ -352,7 +355,7 @@ write_cheatsheet() {
   eza                      modern ls with icons (ls/ll/la/lt aliases)
   zoxide                   smarter cd — z <partial-path> jumps to dirs you visit often
   bat                      cat with syntax highlighting (cat alias, file previews in Tab menu)
-  glow                     markdown reader in the terminal (md file.md)
+  mdt (mdtui)              markdown viewer/editor in the terminal (md file.md)
   neovim                   default editor ($EDITOR/$VISUAL, vi/vim aliases)
 
 ──────────────────────────────────────────────────────────────
@@ -375,7 +378,7 @@ write_cheatsheet() {
   lt               tree view, 2 levels deep
   vi / vim         open neovim
   cat              bat (plain) — colored text, no line numbers, copies clean
-  md               glow — render a markdown file, paged
+  md               mdt — view/edit markdown (file or directory)
   z / zi           jump to a frecent dir / pick one interactively (zoxide)
   .. / ...         up one / two directories
   cp / mv          interactive + verbose (asks before overwrite)
@@ -426,7 +429,7 @@ do_install() {
 
   # ── Packages ───────────────────────────────────────────────────
   step "Packages"
-  local entry pkg missing=()
+  local entry pkg cmd missing=()
   for entry in "${PKGS[@]}"; do
     pkg="${entry%%:*}"
     if rpm -q "$pkg" >/dev/null 2>&1; then
@@ -442,6 +445,22 @@ do_install() {
   else
     ok "All packages already present."
   fi
+
+  # ── Cargo crates ───────────────────────────────────────────────
+  step "Cargo crates"
+  local crate
+  for entry in "${CRATES[@]}"; do
+    crate="${entry%%:*}"; cmd="${entry##*:}"
+    if ! mf_get crate | grep -qxF "$crate" \
+      && { command -v "$cmd" >/dev/null 2>&1 || [[ -x "$HOME/.cargo/bin/$cmd" ]]; }; then
+      info "$crate already installed — will not be removed on uninstall."
+    else
+      # cargo install is a no-op when already up to date, so this also updates
+      run "cargo install $crate (compiles, may take a few minutes)" cargo install --locked "$crate"
+      mf_add crate "$crate"
+      ok "Installed: $crate"
+    fi
+  done
 
   # ── Plugins ────────────────────────────────────────────────────
   step "Zsh plugins"
@@ -595,6 +614,20 @@ do_uninstall() {
 
   # ── Packages (full only) ───────────────────────────────────────
   if [[ "$mode" == "full" ]]; then
+    step "Cargo crates"
+    local crates=() c
+    while read -r c; do [[ -n "$c" ]] && crates+=("$c"); done < <(mf_get crate)
+    if ((${#crates[@]} == 0)); then
+      ok "Nothing to remove — no crates were installed by this tool."
+    elif ! command -v cargo >/dev/null 2>&1; then
+      warn "cargo not found — remove ${crates[*]} from ~/.cargo/bin by hand."
+    else
+      for c in "${crates[@]}"; do
+        cargo uninstall "$c" >>"$LOG" 2>&1 || true
+      done
+      ok "Crates removed: ${crates[*]}"
+    fi
+
     step "Packages"
     local pkgs=() p
     while read -r p; do [[ -n "$p" ]] && rpm -q "$p" >/dev/null 2>&1 && pkgs+=("$p"); done < <(mf_get pkg)
@@ -625,10 +658,10 @@ do_uninstall() {
   if [[ "$mode" == "full" ]]; then
     rm -f "$MANIFEST"
   else
-    # Keep the pkg records: those packages are still installed, and a later
+    # Keep the pkg/crate records: those packages are still installed, and a later
     # --uninstall-full needs to know they were ours. Drop everything else.
     if [[ -f "$MANIFEST" ]]; then
-      mf_get pkg | sed 's/^/pkg /' >"$MANIFEST.tmp"
+      { mf_get pkg | sed 's/^/pkg /'; mf_get crate | sed 's/^/crate /'; } >"$MANIFEST.tmp"
       mv "$MANIFEST.tmp" "$MANIFEST"
     fi
   fi
@@ -663,6 +696,12 @@ do_status() {
     pkg="${entry%%:*}"; cmd="${entry##*:}"
     if command -v "$cmd" >/dev/null 2>&1; then ok "$cmd  $(command -v "$cmd")"
     else warn "$cmd  not installed"; fi
+  done
+  for entry in "${CRATES[@]}"; do
+    cmd="${entry##*:}"
+    if command -v "$cmd" >/dev/null 2>&1; then ok "$cmd  $(command -v "$cmd")"
+    elif [[ -x "$HOME/.cargo/bin/$cmd" ]]; then ok "$cmd  $HOME/.cargo/bin/$cmd"
+    else warn "$cmd  not installed (cargo install ${entry%%:*})"; fi
   done
 
   printf '\n  %sPlugins%s\n' "$BOLD" "$RESET"
