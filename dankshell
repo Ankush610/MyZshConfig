@@ -41,7 +41,7 @@ END_MARK='# <<< dankshell <<<'
 
 # Packages we may install. Left of the colon is the rpm name, right is
 # the command it provides (used for the status report).
-PKGS=(zsh:zsh fzf:fzf eza:eza neovim:nvim git:git zoxide:zoxide bat:bat cargo:cargo curl:curl)
+PKGS=(zsh:zsh fzf:fzf eza:eza neovim:nvim git:git zoxide:zoxide bat:bat cargo:cargo curl:curl ddcutil:ddcutil)
 
 # Crates installed with `cargo install`. Left is the crate, right the command.
 CRATES=(mdtui:mdt)
@@ -446,6 +446,9 @@ do_install() {
   else
     ok "All packages already present."
   fi
+  # ddcutil's udev rule (uaccess on /dev/i2c-*) only applies to devices added
+  # after it is installed; re-trigger so DMS can set monitor brightness now.
+  sudo udevadm trigger --subsystem-match=i2c-dev --action=add
 
   # ── Cargo crates ───────────────────────────────────────────────
   step "Cargo crates"
