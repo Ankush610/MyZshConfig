@@ -21,20 +21,20 @@
     "warning": "#DA702C"
   },
   "light": {
-    "primaryText": "#CECDC3",
-    "primaryContainer": "#163B66",
-    "surface": "#FFFCF0",
-    "surfaceText": "#100F0F",
-    "surfaceVariant": "#FFFCF0",
-    "surfaceVariantText": "#100F0F",
-    "background": "#FFFCF0",
-    "backgroundText": "#100F0F",
-    "outline": "#B7B5AC",
-    "surfaceContainer": "#F2F0E5",
-    "surfaceContainerHigh": "#E6E4D9",
-    "surfaceContainerHighest": "#DAD8CE",
-    "error": "#AF3029",
-    "warning": "#BC5215"
+    "primaryText": "#E9E2C9",
+    "primaryContainer": "#B8D4D0",
+    "surface": "#E9E2C9",
+    "surfaceText": "#585148",
+    "surfaceVariant": "#E9E1C3",
+    "surfaceVariantText": "#583A24",
+    "background": "#E9E2C9",
+    "backgroundText": "#585148",
+    "outline": "#918A83",
+    "surfaceContainer": "#E2D8B8",
+    "surfaceContainerHigh": "#DACDA8",
+    "surfaceContainerHighest": "#D1C298",
+    "error": "#7A1405",
+    "warning": "#984E06"
   },
   "variants": {
     "type": "multi",
@@ -73,20 +73,20 @@
         "id": "light",
         "name": "Light",
         "light": {
-          "primaryText": "#CECDC3",
-          "primaryContainer": "#163B66",
-          "surface": "#FFFCF0",
-          "surfaceText": "#100F0F",
-          "surfaceVariant": "#FFFCF0",
-          "surfaceVariantText": "#100F0F",
-          "background": "#FFFCF0",
-          "backgroundText": "#100F0F",
-          "outline": "#B7B5AC",
-          "surfaceContainer": "#F2F0E5",
-          "surfaceContainerHigh": "#E6E4D9",
-          "surfaceContainerHighest": "#DAD8CE",
-          "error": "#AF3029",
-          "warning": "#BC5215"
+          "primaryText": "#E9E2C9",
+          "primaryContainer": "#B8D4D0",
+          "surface": "#E9E2C9",
+          "surfaceText": "#585148",
+          "surfaceVariant": "#E9E1C3",
+          "surfaceVariantText": "#583A24",
+          "background": "#E9E2C9",
+          "backgroundText": "#585148",
+          "outline": "#918A83",
+          "surfaceContainer": "#E2D8B8",
+          "surfaceContainerHigh": "#DACDA8",
+          "surfaceContainerHighest": "#D1C298",
+          "error": "#7A1405",
+          "warning": "#984E06"
         }
       }
     ],
@@ -101,10 +101,10 @@
           "info": "#4385BE"
         },
         "light": {
-          "primary": "#205EA6",
-          "secondary": "#205EA6",
-          "surfaceTint": "#3171B2",
-          "info": "#205EA6"
+          "primary": "#2A5173",
+          "secondary": "#2A5173",
+          "surfaceTint": "#366994",
+          "info": "#2A5173"
         }
       },
       {
@@ -117,10 +117,10 @@
           "info": "#FF6B6B"
         },
         "light": {
-          "primary": "#8F3C3C",
-          "secondary": "#8F3C3C",
-          "surfaceTint": "#9A5050",
-          "info": "#8F3C3C"
+          "primary": "#7A1405",
+          "secondary": "#7A1405",
+          "surfaceTint": "#6C261B",
+          "info": "#7A1405"
         }
       },
       {
@@ -133,10 +133,10 @@
           "info": "#FFA552"
         },
         "light": {
-          "primary": "#784E27",
-          "secondary": "#784E27",
-          "surfaceTint": "#86603D",
-          "info": "#784E27"
+          "primary": "#683504",
+          "secondary": "#683504",
+          "surfaceTint": "#984E06",
+          "info": "#683504"
         }
       },
       {
@@ -149,10 +149,10 @@
           "info": "#FFD23F"
         },
         "light": {
-          "primary": "#665419",
-          "secondary": "#665419",
-          "surfaceTint": "#756530",
-          "info": "#665419"
+          "primary": "#957C16",
+          "secondary": "#957C16",
+          "surfaceTint": "#B4961A",
+          "info": "#957C16"
         }
       },
       {
@@ -165,10 +165,10 @@
           "info": "#658D6D"
         },
         "light": {
-          "primary": "#435D48",
-          "secondary": "#435D48",
-          "surfaceTint": "#566D5A",
-          "info": "#435D48"
+          "primary": "#333F0A",
+          "secondary": "#333F0A",
+          "surfaceTint": "#50620F",
+          "info": "#333F0A"
         }
       },
       {
@@ -181,10 +181,10 @@
           "info": "#8B7EC8"
         },
         "light": {
-          "primary": "#5E409D",
-          "secondary": "#5E409D",
-          "surfaceTint": "#735EB5",
-          "info": "#5E409D"
+          "primary": "#513E56",
+          "secondary": "#513E56",
+          "surfaceTint": "#674F6E",
+          "info": "#513E56"
         }
       },
       {
@@ -197,10 +197,10 @@
           "info": "#CE5D97"
         },
         "light": {
-          "primary": "#A02F6F",
-          "secondary": "#A02F6F",
-          "surfaceTint": "#B74583",
-          "info": "#A02F6F"
+          "primary": "#5F2263",
+          "secondary": "#5F2263",
+          "surfaceTint": "#85308A",
+          "info": "#5F2263"
         }
       },
       {
@@ -213,10 +213,10 @@
           "info": "#6F8EAD"
         },
         "light": {
-          "primary": "#46596D",
-          "secondary": "#46596D",
-          "surfaceTint": "#586A7C",
-          "info": "#46596D"
+          "primary": "#585148",
+          "secondary": "#585148",
+          "surfaceTint": "#66615C",
+          "info": "#585148"
         }
       }
     ]
