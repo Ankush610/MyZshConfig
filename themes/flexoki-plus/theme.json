@@ -101,10 +101,10 @@
           "info": "#4385BE"
         },
         "light": {
-          "primary": "#5E6A75",
-          "secondary": "#5E6A75",
-          "surfaceTint": "#7E868C",
-          "info": "#5E6A75"
+          "primary": "#286983",
+          "secondary": "#286983",
+          "surfaceTint": "#56949f",
+          "info": "#286983"
         }
       },
       {
@@ -117,10 +117,10 @@
           "info": "#FF6B6B"
         },
         "light": {
-          "primary": "#C48484",
-          "secondary": "#C48484",
-          "surfaceTint": "#CF9B98",
-          "info": "#C48484"
+          "primary": "#d7827e",
+          "secondary": "#d7827e",
+          "surfaceTint": "#e0a09c",
+          "info": "#d7827e"
         }
       },
       {
@@ -133,10 +133,10 @@
           "info": "#FFA552"
         },
         "light": {
-          "primary": "#855A35",
-          "secondary": "#855A35",
-          "surfaceTint": "#9D7958",
-          "info": "#855A35"
+          "primary": "#e08a3c",
+          "secondary": "#e08a3c",
+          "surfaceTint": "#eaa464",
+          "info": "#e08a3c"
         }
       },
       {
@@ -149,10 +149,10 @@
           "info": "#FFD23F"
         },
         "light": {
-          "primary": "#957C16",
-          "secondary": "#957C16",
-          "surfaceTint": "#B4961A",
-          "info": "#957C16"
+          "primary": "#ea9d34",
+          "secondary": "#ea9d34",
+          "surfaceTint": "#f0b45f",
+          "info": "#ea9d34"
         }
       },
       {
@@ -165,10 +165,10 @@
           "info": "#658D6D"
         },
         "light": {
-          "primary": "#72785B",
-          "secondary": "#72785B",
-          "surfaceTint": "#8E9177",
-          "info": "#72785B"
+          "primary": "#6b8f71",
+          "secondary": "#6b8f71",
+          "surfaceTint": "#88a88d",
+          "info": "#6b8f71"
         }
       },
       {
@@ -181,10 +181,10 @@
           "info": "#8B7EC8"
         },
         "light": {
-          "primary": "#513E56",
-          "secondary": "#513E56",
-          "surfaceTint": "#674F6E",
-          "info": "#513E56"
+          "primary": "#907aa9",
+          "secondary": "#907aa9",
+          "surfaceTint": "#a894bd",
+          "info": "#907aa9"
         }
       },
       {
@@ -197,10 +197,10 @@
           "info": "#CE5D97"
         },
         "light": {
-          "primary": "#5F2263",
-          "secondary": "#5F2263",
-          "surfaceTint": "#85308A",
-          "info": "#5F2263"
+          "primary": "#b4637a",
+          "secondary": "#b4637a",
+          "surfaceTint": "#c6829a",
+          "info": "#b4637a"
         }
       },
       {
@@ -213,10 +213,10 @@
           "info": "#6F8EAD"
         },
         "light": {
-          "primary": "#585040",
-          "secondary": "#585040",
-          "surfaceTint": "#797161",
-          "info": "#585040"
+          "primary": "#797593",
+          "secondary": "#797593",
+          "surfaceTint": "#9893a5",
+          "info": "#797593"
         }
       }
     ]
