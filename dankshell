@@ -133,12 +133,12 @@ backup_file() {
   printf '%s' "$dest"
 }
 
-# block_strip <file> — delete the dankshell block, if any
+# block_strip <file> [begin end] — delete the dankshell block, if any
 block_strip() {
-  local f=$1
+  local f=$1 b=${2:-$BEGIN_MARK} e=${3:-$END_MARK}
   [[ -f "$f" ]] || return 0
-  grep -qF "$BEGIN_MARK" "$f" || return 0
-  sed -i "\|^${BEGIN_MARK}\$|,\|^${END_MARK}\$|d" "$f"
+  grep -qF "$b" "$f" || return 0
+  sed -i "\|^${b}\$|,\|^${e}\$|d" "$f"
 }
 
 # block_legacy_strip <file> — remove the unmarked lines the old
@@ -151,12 +151,14 @@ block_legacy_strip() {
          -e '\|^source ~/\.zsh/dankshell\.zsh$|d' "$f"
 }
 
-# block_write <file> <source-line> — idempotently install the block
+# block_write <file> <source-line> [begin end] — idempotently install the block.
+# Custom markers are for non-shell files (e.g. KDL, which comments with //);
+# those blocks are removed by their own uninstall step, not recorded as rc.
 block_write() {
-  local f=$1 src=$2
+  local f=$1 src=$2 b=${3:-$BEGIN_MARK} e=${4:-$END_MARK}
   [[ -f "$f" ]] && backup_file "$f" >/dev/null
-  block_strip "$f"
-  block_legacy_strip "$f"
+  block_strip "$f" "$b" "$e"
+  [[ "$b" == "$BEGIN_MARK" ]] && block_legacy_strip "$f"
   # Trim trailing blank lines so repeated runs don't grow the file
   if [[ -f "$f" ]]; then
     # rewrite in place: mv would replace the file and drop its mode
@@ -165,11 +167,12 @@ block_write() {
     rm -f "$f.dank.tmp"
   fi
   {
-    printf '\n%s\n' "$BEGIN_MARK"
+    printf '\n%s\n' "$b"
     printf '%s\n' "$src"
-    printf '%s\n' "$END_MARK"
+    printf '%s\n' "$e"
   } >>"$f"
-  mf_add rc "$f"
+  [[ "$b" == "$BEGIN_MARK" ]] && mf_add rc "$f"
+  return 0
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -321,6 +324,79 @@ shader_remove() {
     ok "Shader files removed."
   fi
   rmdir "$HOME/.config/ghostty/shaders" 2>/dev/null || true
+}
+
+# ════════════════════════════════════════════════════════════════
+#  Ghostty blur — translucent Ghostty with niri blurring behind it
+# ════════════════════════════════════════════════════════════════
+# Both files get a marked block appended. Ghostty takes the last value of
+# a key, and niri merges window rules, so the block overrides without
+# touching the user's own lines — and uninstall just deletes the block.
+
+NIRI_CONF="$HOME/.config/niri/config.kdl"
+BLUR_GHOSTTY_BEGIN='# >>> dankshell blur >>>'
+BLUR_GHOSTTY_END='# <<< dankshell blur <<<'
+BLUR_NIRI_BEGIN='// >>> dankshell blur >>>'
+BLUR_NIRI_END='// <<< dankshell blur <<<'
+
+blur_present() {
+  grep -qF "$BLUR_GHOSTTY_BEGIN" "$GHOSTTY_CONF" 2>/dev/null \
+    || grep -qF "$BLUR_NIRI_BEGIN" "$NIRI_CONF" 2>/dev/null
+}
+
+# blur_legacy_strip — remove the unmarked lines the old ghostty-blur.sh added
+blur_legacy_strip() {
+  if [[ -f "$GHOSTTY_CONF" ]] && grep -q '^background-blur *=' "$GHOSTTY_CONF"; then
+    sed -i '/^background-blur *=/d' "$GHOSTTY_CONF"
+  fi
+  if [[ -f "$NIRI_CONF" ]] && grep -qF '// Blur behind translucent Ghostty windows' "$NIRI_CONF"; then
+    # each legacy chunk runs from its comment to the first unindented }
+    sed -i -e '\|^// Blur behind translucent Ghostty windows$|,/^}$/d' \
+           -e '\|^// Lighter blur (fewer passes / smaller offset = less blur)$|,/^}$/d' "$NIRI_CONF"
+  fi
+}
+
+blur_apply() {
+  if [[ ! -f "$GHOSTTY_CONF" || ! -f "$NIRI_CONF" ]]; then
+    info "Ghostty or niri config not found — skipping."
+    return 0
+  fi
+  backup_file "$GHOSTTY_CONF" >/dev/null
+  backup_file "$NIRI_CONF" >/dev/null
+  blur_legacy_strip
+
+  block_write "$GHOSTTY_CONF" 'background-opacity = 0.98
+background-blur = true' "$BLUR_GHOSTTY_BEGIN" "$BLUR_GHOSTTY_END"
+
+  # Only set blur strength if the user hasn't got their own top-level blur {}
+  local strength=""
+  grep -q '^blur {' "$NIRI_CONF" || strength='
+// Lighter blur (fewer passes / smaller offset = less blur)
+blur {
+    passes 2
+    offset 2.0
+}'
+  block_write "$NIRI_CONF" "// Blur behind translucent Ghostty windows
+window-rule {
+    match app-id=\"com.mitchellh.ghostty\"
+    background-effect {
+        blur true
+    }
+}$strength" "$BLUR_NIRI_BEGIN" "$BLUR_NIRI_END"
+
+  command -v ghostty >/dev/null && { ghostty +validate-config >>"$LOG" 2>&1 || warn "ghostty +validate-config failed — see $LOG"; }
+  command -v niri    >/dev/null && { niri validate           >>"$LOG" 2>&1 || warn "niri validate failed — see $LOG"; }
+  ok "Blur enabled. Close all Ghostty windows and reopen."
+}
+
+blur_remove() {
+  blur_legacy_strip
+  blur_present || { info "Ghostty blur not present."; return 0; }
+  backup_file "$GHOSTTY_CONF" >/dev/null
+  backup_file "$NIRI_CONF" >/dev/null
+  block_strip "$GHOSTTY_CONF" "$BLUR_GHOSTTY_BEGIN" "$BLUR_GHOSTTY_END"
+  block_strip "$NIRI_CONF"    "$BLUR_NIRI_BEGIN"    "$BLUR_NIRI_END"
+  ok "Ghostty blur removed."
 }
 
 # ════════════════════════════════════════════════════════════════
@@ -503,6 +579,10 @@ do_install() {
   step "Ghostty cursor shader"
   shader_remove
 
+  # ── Blur ───────────────────────────────────────────────────────
+  step "Ghostty blur"
+  blur_apply
+
   # ── Default shell ──────────────────────────────────────────────
   step "Default shell"
   local zsh_path current
@@ -615,6 +695,10 @@ do_uninstall() {
   # ── Cursor shader ──────────────────────────────────────────────
   step "Ghostty cursor shader"
   shader_remove
+
+  # ── Blur ───────────────────────────────────────────────────────
+  step "Ghostty blur"
+  blur_remove
 
   # ── Packages (full only) ───────────────────────────────────────
   if [[ "$mode" == "full" ]]; then
@@ -732,6 +816,10 @@ do_status() {
   printf '\n  %sGhostty cursor shader%s\n' "$BOLD" "$RESET"
   if shader_present; then warn "still present (dropped from this repo — run install or uninstall to clean)"
   else ok "not present"; fi
+
+  printf '\n  %sGhostty blur%s\n' "$BOLD" "$RESET"
+  if blur_present; then ok "enabled"
+  else warn "not enabled — run install"; fi
 
   printf '\n  %sManifest%s\n' "$BOLD" "$RESET"
   if [[ -s "$MANIFEST" ]]; then
