@@ -149,10 +149,10 @@
           "info": "#FFD23F"
         },
         "light": {
-          "primary": "#ea9d34",
-          "secondary": "#ea9d34",
-          "surfaceTint": "#f0b45f",
-          "info": "#ea9d34"
+          "primary": "#684f4f",
+          "secondary": "#684f4f",
+          "surfaceTint": "#6E5C5C",
+          "info": "#684f4f"
         }
       },
       {
